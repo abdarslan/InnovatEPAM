@@ -45,6 +45,12 @@ export default async function ProtectedLayout({
                 Dashboard
               </Link>
             )}
+            <Link
+              href="/ideas"
+              className="text-sm text-[--color-text] hover:text-[--color-primary]"
+            >
+              Ideas
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-[--color-text-muted]">{displayName}</span>
