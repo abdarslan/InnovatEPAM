@@ -42,6 +42,7 @@ const baseDetail: IdeaDetail = {
   attachmentSize: null,
   attachmentMimeType: null,
   evaluation: null,
+  dynamicFields: [],
 }
 
 describe('IdeaRow', () => {
@@ -89,6 +90,30 @@ describe('IdeaRow', () => {
     await user.click(screen.getByRole('button'))
     await waitFor(() => {
       expect(screen.getByRole('link', { name: /report\.pdf/i })).toBeInTheDocument()
+    })
+  })
+
+  it('shows dynamic category fields in expanded detail', async () => {
+    const user = userEvent.setup()
+    const detailWithDynamic: IdeaDetail = {
+      ...baseDetail,
+      dynamicFields: [
+        { fieldKey: 'planned_date', value: '2026-11-20' },
+        { fieldKey: 'planned_attendees', value: '80' },
+      ],
+    }
+
+    mockGetIdeaDetailAction.mockResolvedValue({ ok: true, data: detailWithDynamic })
+
+    render(<IdeaRow idea={{ ...baseIdea, category: 'event_plan' }} currentUserId={42} currentUserRole="submitter" />)
+    await user.click(screen.getByRole('button', { name: /test idea title/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/category details/i)).toBeInTheDocument()
+      expect(screen.getByText(/planned date:/i)).toBeInTheDocument()
+      expect(screen.getByText('2026-11-20')).toBeInTheDocument()
+      expect(screen.getByText(/planned attendees:/i)).toBeInTheDocument()
+      expect(screen.getByText('80')).toBeInTheDocument()
     })
   })
 })

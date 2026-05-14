@@ -1,8 +1,8 @@
 import 'dotenv/config'
 import { db } from './index'
-import { users } from './schema'
+import { ideaCategoryFieldRules, users } from './schema'
 import { hashPassword } from '../auth/password'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 async function seed() {
   const email = process.env.ADMIN_EMAIL
@@ -39,6 +39,99 @@ async function seed() {
     }).run()
     console.log(`Admin account created: ${normalizedEmail}`)
   }
+
+  const admin = db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail)).get()
+  if (!admin) {
+    console.error('Failed to resolve admin account for rule seeding')
+    process.exit(1)
+  }
+
+  const ruleNow = Date.now()
+  const eventPlanRules = [
+    {
+      category: 'event_plan' as const,
+      fieldKey: 'planned_date',
+      label: 'Planned Date',
+      fieldType: 'date' as const,
+      required: false,
+      minValue: null,
+      maxValue: null,
+      minLength: null,
+      maxLength: null,
+      helpText: 'Optional event date (YYYY-MM-DD).',
+      sortOrder: 1,
+      isActive: true,
+    },
+    {
+      category: 'event_plan' as const,
+      fieldKey: 'planned_attendees',
+      label: 'Planned Number of Attendees',
+      fieldType: 'number' as const,
+      required: false,
+      minValue: 1,
+      maxValue: null,
+      minLength: null,
+      maxLength: null,
+      helpText: 'Optional expected attendee count.',
+      sortOrder: 2,
+      isActive: true,
+    },
+  ]
+
+  for (const rule of eventPlanRules) {
+    const existingRule = db
+      .select({ id: ideaCategoryFieldRules.id })
+      .from(ideaCategoryFieldRules)
+      .where(
+        and(
+          eq(ideaCategoryFieldRules.category, rule.category),
+          eq(ideaCategoryFieldRules.fieldKey, rule.fieldKey),
+        ),
+      )
+      .get()
+
+    if (existingRule) {
+      db.update(ideaCategoryFieldRules)
+        .set({
+          label: rule.label,
+          fieldType: rule.fieldType,
+          required: rule.required,
+          minValue: rule.minValue,
+          maxValue: rule.maxValue,
+          minLength: rule.minLength,
+          maxLength: rule.maxLength,
+          helpText: rule.helpText,
+          sortOrder: rule.sortOrder,
+          isActive: rule.isActive,
+          updatedAt: ruleNow,
+          updatedByAdminId: admin.id,
+        })
+        .where(eq(ideaCategoryFieldRules.id, existingRule.id))
+        .run()
+    } else {
+      db.insert(ideaCategoryFieldRules)
+        .values({
+          category: rule.category,
+          fieldKey: rule.fieldKey,
+          label: rule.label,
+          fieldType: rule.fieldType,
+          required: rule.required,
+          minValue: rule.minValue,
+          maxValue: rule.maxValue,
+          minLength: rule.minLength,
+          maxLength: rule.maxLength,
+          helpText: rule.helpText,
+          sortOrder: rule.sortOrder,
+          isActive: rule.isActive,
+          createdAt: ruleNow,
+          updatedAt: ruleNow,
+          updatedByAdminId: admin.id,
+        })
+        .run()
+    }
+  }
+
+  console.log('Event Plan dynamic field rules seeded.')
 }
 
 seed().catch((err) => {

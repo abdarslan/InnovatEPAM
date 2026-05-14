@@ -1,4 +1,12 @@
-import { blob, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import {
+  blob,
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core'
 
 export const users = sqliteTable('users', {
   id:             integer('id').primaryKey({ autoIncrement: true }),
@@ -25,6 +33,7 @@ export const IDEA_CATEGORIES = [
   'customer_experience',
   'workplace_culture',
   'cost_reduction',
+  'event_plan',
 ] as const
 
 export type IdeaCategory = typeof IDEA_CATEGORIES[number]
@@ -77,3 +86,67 @@ export const ideaEvaluations = sqliteTable('idea_evaluations', {
 
 export type IdeaEvaluation    = typeof ideaEvaluations.$inferSelect
 export type NewIdeaEvaluation = typeof ideaEvaluations.$inferInsert
+
+// ---------------------------------------------------------------------------
+// Dynamic Category Field Rules
+// ---------------------------------------------------------------------------
+
+export const DYNAMIC_FIELD_TYPES = ['text', 'number', 'date'] as const
+
+export type DynamicFieldType = typeof DYNAMIC_FIELD_TYPES[number]
+
+export const ideaCategoryFieldRules = sqliteTable(
+  'idea_category_field_rules',
+  {
+    id:               integer('id').primaryKey({ autoIncrement: true }),
+    category:         text('category', { enum: IDEA_CATEGORIES }).notNull(),
+    fieldKey:         text('field_key').notNull(),
+    label:            text('label').notNull(),
+    fieldType:        text('field_type', { enum: DYNAMIC_FIELD_TYPES }).notNull(),
+    required:         integer('required', { mode: 'boolean' }).notNull().default(false),
+    minValue:         real('min_value'),
+    maxValue:         real('max_value'),
+    minLength:        integer('min_length'),
+    maxLength:        integer('max_length'),
+    helpText:         text('help_text'),
+    sortOrder:        integer('sort_order').notNull().default(0),
+    isActive:         integer('is_active', { mode: 'boolean' }).notNull().default(true),
+    createdAt:        integer('created_at').notNull(),
+    updatedAt:        integer('updated_at').notNull(),
+    updatedByAdminId: integer('updated_by_admin_id').notNull().references(() => users.id),
+  },
+  (table) => ({
+    categoryFieldKeyUnique: uniqueIndex('idea_category_field_rules_category_field_key_unique')
+      .on(table.category, table.fieldKey),
+    categorySortOrderIndex: index('idea_category_field_rules_category_sort_order_idx')
+      .on(table.category, table.sortOrder),
+  }),
+)
+
+export type IdeaCategoryFieldRule = typeof ideaCategoryFieldRules.$inferSelect
+export type NewIdeaCategoryFieldRule = typeof ideaCategoryFieldRules.$inferInsert
+
+// ---------------------------------------------------------------------------
+// Dynamic Category Field Values
+// ---------------------------------------------------------------------------
+
+export const ideaFieldValues = sqliteTable(
+  'idea_field_values',
+  {
+    id:        integer('id').primaryKey({ autoIncrement: true }),
+    ideaId:    integer('idea_id').notNull().references(() => ideas.id, { onDelete: 'cascade' }),
+    ruleId:    integer('rule_id').notNull().references(() => ideaCategoryFieldRules.id),
+    fieldKey:  text('field_key').notNull(),
+    value:     text('value').notNull(),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => ({
+    ideaFieldKeyUnique: uniqueIndex('idea_field_values_idea_id_field_key_unique')
+      .on(table.ideaId, table.fieldKey),
+    ideaLookupIndex: index('idea_field_values_idea_id_idx').on(table.ideaId),
+  }),
+)
+
+export type IdeaFieldValue = typeof ideaFieldValues.$inferSelect
+export type NewIdeaFieldValue = typeof ideaFieldValues.$inferInsert

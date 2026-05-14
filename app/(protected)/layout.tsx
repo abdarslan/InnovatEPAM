@@ -42,6 +42,12 @@ export default async function ProtectedLayout({
                 >
                   Idea Management
                 </Link>
+                <Link
+                  href="/admin/idea-field-rules"
+                  className="text-sm text-[--color-text] hover:text-[--color-primary]"
+                >
+                  Field Rules
+                </Link>
               </>
             ) : (
               <Link

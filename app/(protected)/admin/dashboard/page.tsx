@@ -28,6 +28,18 @@ export default async function AdminDashboardPage() {
             View Users →
           </a>
         </div>
+        <div className="rounded-lg border border-[--color-border] bg-white p-6">
+          <h2 className="font-semibold text-[--color-text]">Idea Management</h2>
+          <p className="mt-1 text-sm text-[--color-text-muted]">
+            Review, evaluate, and manage submitted ideas.
+          </p>
+          <a
+            href="/admin/ideas"
+            className="mt-3 inline-block text-sm text-[--color-primary] hover:underline"
+          >
+            View Ideas →
+          </a>
+        </div>
       </div>
     </div>
   )

@@ -67,3 +67,68 @@ export const evaluateIdeaSchema = z.discriminatedUnion('status', [
 
 export type StartReviewInput  = z.infer<typeof startReviewSchema>
 export type EvaluateIdeaInput = z.infer<typeof evaluateIdeaSchema>
+
+// ---------------------------------------------------------------------------
+// Dynamic category field rules
+// ---------------------------------------------------------------------------
+
+export const upsertCategoryFieldRuleSchema = z.object({
+  id: z.number().int().positive().optional(),
+  category: z.enum(IDEA_CATEGORIES, {
+    error: () => ({ message: 'Please select a valid category.' }),
+  }),
+  fieldKey: z
+    .string()
+    .trim()
+    .min(2, { message: 'Field key must be at least 2 characters.' })
+    .max(64, { message: 'Field key must be 64 characters or fewer.' })
+    .regex(/^[a-z0-9_]+$/, { message: 'Field key must use lowercase letters, numbers, and underscores only.' }),
+  label: z
+    .string()
+    .trim()
+    .min(2, { message: 'Label must be at least 2 characters.' })
+    .max(120, { message: 'Label must be 120 characters or fewer.' }),
+  fieldType: z.enum(['text', 'number', 'date']),
+  required: z.boolean(),
+  minValue: z.number().finite().optional(),
+  maxValue: z.number().finite().optional(),
+  minLength: z.number().int().nonnegative().optional(),
+  maxLength: z.number().int().positive().optional(),
+  helpText: z.string().trim().max(255, { message: 'Help text must be 255 characters or fewer.' }).optional(),
+  sortOrder: z.number().int().nonnegative(),
+  isActive: z.boolean(),
+}).superRefine((payload, ctx) => {
+  if (payload.fieldType === 'number') {
+    if (payload.minValue !== undefined && payload.maxValue !== undefined && payload.minValue > payload.maxValue) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['minValue'],
+        message: 'Minimum value cannot be greater than maximum value.',
+      })
+    }
+  }
+
+  if (payload.fieldType === 'text') {
+    if (payload.minLength !== undefined && payload.maxLength !== undefined && payload.minLength > payload.maxLength) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['minLength'],
+        message: 'Minimum length cannot be greater than maximum length.',
+      })
+    }
+  }
+})
+
+export function collectDynamicFieldEntries(
+  formData: FormData,
+  prefix = 'dynamic_',
+): Record<string, FormDataEntryValue | null> {
+  const values: Record<string, FormDataEntryValue | null> = {}
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith(prefix)) continue
+    values[key.slice(prefix.length)] = value
+  }
+  return values
+}
+
+export type UpsertCategoryFieldRuleInput = z.infer<typeof upsertCategoryFieldRuleSchema>

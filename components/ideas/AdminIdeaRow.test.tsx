@@ -1,12 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { AdminIdeaRow } from './AdminIdeaRow'
 import type { AdminIdeaListItem } from '@/actions/ideas'
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
+const mockGetIdeaDetailAction = vi.fn()
 vi.mock('@/actions/ideas', () => ({
   startReviewAction:  vi.fn(),
   evaluateIdeaAction: vi.fn(),
+  getIdeaDetailAction: (...args: unknown[]) => mockGetIdeaDetailAction(...args),
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
@@ -26,6 +29,21 @@ const baseIdea: AdminIdeaListItem = {
 }
 
 describe('AdminIdeaRow', () => {
+  mockGetIdeaDetailAction.mockResolvedValue({
+    ok: true,
+    data: {
+      ...baseIdea,
+      description: 'Dynamic admin detail',
+      attachmentName: null,
+      attachmentSize: null,
+      attachmentMimeType: null,
+      evaluation: null,
+      dynamicFields: [
+        { fieldKey: 'planned_date', value: '2026-11-20' },
+      ],
+    },
+  })
+
   it('renders idea title and submitter', () => {
     render(<AdminIdeaRow idea={baseIdea} />)
     expect(screen.getByText('Great Idea')).toBeInTheDocument()
@@ -58,5 +76,16 @@ describe('AdminIdeaRow', () => {
   it('shows EvaluationPanel Start Review button for submitted status', () => {
     render(<AdminIdeaRow idea={baseIdea} />)
     expect(screen.getByRole('button', { name: /start review/i })).toBeInTheDocument()
+  })
+
+  it('shows dynamic fields when admin opens details', async () => {
+    const user = userEvent.setup()
+    render(<AdminIdeaRow idea={baseIdea} />)
+
+    await user.click(screen.getByRole('button', { name: /view details/i }))
+
+    expect(await screen.findByText(/category details/i)).toBeInTheDocument()
+    expect(await screen.findByText(/planned date:/i)).toBeInTheDocument()
+    expect(await screen.findByText('2026-11-20')).toBeInTheDocument()
   })
 })

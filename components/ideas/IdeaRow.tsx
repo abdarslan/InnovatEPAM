@@ -14,6 +14,7 @@ const CATEGORY_LABELS: Record<IdeaCategory, string> = {
   customer_experience: 'Customer Experience',
   workplace_culture: 'Workplace Culture',
   cost_reduction: 'Cost Reduction',
+  event_plan: 'Event Plan',
 }
 
 type IdeaRowProps = {
@@ -35,6 +36,14 @@ function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatDynamicFieldLabel(fieldKey: string) {
+  return fieldKey
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }
 
 export default function IdeaRow({ idea, currentUserId, currentUserRole, onDeleted }: IdeaRowProps) {
@@ -110,6 +119,20 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
             {detail && (
               <>
                 <p className="text-sm text-[--color-text] whitespace-pre-wrap">{detail.description}</p>
+
+                {detail.dynamicFields.length > 0 && (
+                  <div className="rounded border border-border bg-muted/50 p-3 text-sm space-y-1">
+                    <p className="font-medium">Category details</p>
+                    <dl className="space-y-1">
+                      {detail.dynamicFields.map((field) => (
+                        <div key={field.fieldKey} className="flex flex-wrap gap-1">
+                          <dt className="font-medium">{formatDynamicFieldLabel(field.fieldKey)}:</dt>
+                          <dd className="text-muted-foreground">{field.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                )}
 
                 {detail.evaluation !== null && currentUserId === idea.submitterId && (
                   <div className="rounded border border-border bg-muted/50 p-3 text-sm space-y-1">

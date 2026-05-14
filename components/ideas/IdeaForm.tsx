@@ -1,8 +1,9 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { getCategoryFieldRulesAction, type CategoryFieldRule } from '@/actions/ideas'
 import { IDEA_CATEGORIES, type IdeaCategory } from '@/lib/db/schema'
 import { submitIdeaSchema, type SubmitIdeaInput } from '@/lib/ideas/validation'
 import type { ActionResult } from '@/actions/ideas'
@@ -13,6 +14,7 @@ const CATEGORY_LABELS: Record<IdeaCategory, string> = {
   customer_experience: 'Customer Experience',
   workplace_culture: 'Workplace Culture',
   cost_reduction: 'Cost Reduction',
+  event_plan: 'Event Plan',
 }
 
 type IdeaFormProps = {
@@ -30,6 +32,10 @@ export default function IdeaForm({
 }: IdeaFormProps) {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
+  const [dynamicRules, setDynamicRules] = useState<CategoryFieldRule[]>([])
+  const [dynamicValues, setDynamicValues] = useState<Record<string, string>>({})
+  const [dynamicErrors, setDynamicErrors] = useState<Record<string, string>>({})
+  const [dynamicRulesError, setDynamicRulesError] = useState<string | null>(null)
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -37,6 +43,7 @@ export default function IdeaForm({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<SubmitIdeaInput>({
     resolver: zodResolver(submitIdeaSchema),
@@ -47,13 +54,135 @@ export default function IdeaForm({
     },
   })
 
+  const selectedCategory = watch('category')
+
+  useEffect(() => {
+    const category = selectedCategory as IdeaCategory | undefined
+    if (!category) {
+      setDynamicRules([])
+      setDynamicValues({})
+      setDynamicErrors({})
+      setDynamicRulesError(null)
+      return
+    }
+
+    let isMounted = true
+    void (async () => {
+      const result = await getCategoryFieldRulesAction(category)
+      if (!isMounted) return
+      if (!result.ok) {
+        setDynamicRules([])
+        setDynamicValues({})
+        setDynamicErrors({})
+        setDynamicRulesError(result.error)
+        return
+      }
+
+      setDynamicRules(result.data)
+      setDynamicRulesError(null)
+
+      const validKeys = new Set(result.data.map((rule) => rule.fieldKey))
+      setDynamicValues((prev) => {
+        const next: Record<string, string> = {}
+        for (const [key, value] of Object.entries(prev)) {
+          if (validKeys.has(key)) next[key] = value
+        }
+        return next
+      })
+
+      setDynamicErrors((prev) => {
+        const next: Record<string, string> = {}
+        for (const [key, value] of Object.entries(prev)) {
+          if (validKeys.has(key)) next[key] = value
+        }
+        return next
+      })
+    })()
+
+    return () => {
+      isMounted = false
+    }
+  }, [selectedCategory])
+
+  const activeDynamicFieldKeys = useMemo(
+    () => new Set(dynamicRules.map((rule) => rule.fieldKey)),
+    [dynamicRules],
+  )
+
+  function validateDynamicFields() {
+    const nextErrors: Record<string, string> = {}
+
+    for (const rule of dynamicRules) {
+      const rawValue = dynamicValues[rule.fieldKey] ?? ''
+      const value = rawValue.trim()
+
+      if (!value) {
+        if (rule.required) nextErrors[rule.fieldKey] = `${rule.label} is required.`
+        continue
+      }
+
+      if (rule.fieldType === 'number') {
+        const parsed = Number(value)
+        if (!Number.isFinite(parsed)) {
+          nextErrors[rule.fieldKey] = `${rule.label} must be a valid number.`
+          continue
+        }
+        if (rule.minValue !== null && parsed < rule.minValue) {
+          nextErrors[rule.fieldKey] = `${rule.label} must be at least ${rule.minValue}.`
+          continue
+        }
+        if (rule.maxValue !== null && parsed > rule.maxValue) {
+          nextErrors[rule.fieldKey] = `${rule.label} must be ${rule.maxValue} or less.`
+          continue
+        }
+      }
+
+      if (rule.fieldType === 'date') {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))) {
+          nextErrors[rule.fieldKey] = `${rule.label} must be a valid date (YYYY-MM-DD).`
+          continue
+        }
+      }
+
+      if (rule.fieldType === 'text') {
+        if (rule.minLength !== null && value.length < rule.minLength) {
+          nextErrors[rule.fieldKey] = `${rule.label} must be at least ${rule.minLength} characters.`
+          continue
+        }
+        if (rule.maxLength !== null && value.length > rule.maxLength) {
+          nextErrors[rule.fieldKey] = `${rule.label} must be ${rule.maxLength} characters or fewer.`
+          continue
+        }
+      }
+    }
+
+    for (const [key, value] of Object.entries(dynamicValues)) {
+      if (!activeDynamicFieldKeys.has(key) && value.trim().length > 0) {
+        nextErrors[key] = 'This field is not valid for the selected category.'
+      }
+    }
+
+    setDynamicErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
+  }
+
   function onSubmit(data: SubmitIdeaInput) {
     setServerError(null)
+    if (!validateDynamicFields()) return
+
     startTransition(async () => {
       const formData = new FormData()
       formData.set('title', data.title)
       formData.set('description', data.description)
       formData.set('category', data.category)
+
+      for (const rule of dynamicRules) {
+        const value = (dynamicValues[rule.fieldKey] ?? '').trim()
+        if (value.length > 0) {
+          formData.set(`dynamic_${rule.fieldKey}`, value)
+        }
+      }
+
       const file = fileInputRef.current?.files?.[0]
       if (file) formData.set('attachment', file)
 
@@ -63,6 +192,8 @@ export default function IdeaForm({
         return
       }
       reset()
+      setDynamicValues({})
+      setDynamicErrors({})
       setSelectedFileName(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
       const id = result.ok && 'data' in result && result.data && typeof result.data === 'object' && 'id' in result.data
@@ -147,6 +278,76 @@ export default function IdeaForm({
           </p>
         )}
       </div>
+
+      {/* Dynamic category fields */}
+      {dynamicRulesError && (
+        <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          {dynamicRulesError}
+        </div>
+      )}
+      {dynamicRules.length > 0 && (
+        <fieldset className="space-y-3 rounded-md border border-[--color-border] p-3" aria-live="polite">
+          <legend className="px-1 text-sm font-medium text-[--color-text]">Category details</legend>
+          {dynamicRules.map((rule) => {
+            const fieldId = `dynamic_${rule.fieldKey}`
+            const helpId = `${fieldId}-help`
+            const errorId = `${fieldId}-error`
+            const isError = Boolean(dynamicErrors[rule.fieldKey])
+            const value = dynamicValues[rule.fieldKey] ?? ''
+            const describedBy = [
+              rule.helpText ? helpId : null,
+              isError ? errorId : null,
+            ].filter(Boolean).join(' ') || undefined
+
+            return (
+              <div key={rule.fieldKey} className="space-y-1">
+                <label htmlFor={fieldId} className="block text-sm font-medium text-[--color-text]">
+                  {rule.label} {rule.required ? <span aria-hidden="true">*</span> : null}
+                </label>
+
+                {rule.fieldType === 'text' ? (
+                  <input
+                    id={fieldId}
+                    type="text"
+                    value={value}
+                    aria-invalid={isError}
+                    aria-describedby={describedBy}
+                    onChange={(event) => {
+                      const next = event.target.value
+                      setDynamicValues((prev) => ({ ...prev, [rule.fieldKey]: next }))
+                    }}
+                    className="w-full rounded-md border border-[--color-border] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
+                  />
+                ) : (
+                  <input
+                    id={fieldId}
+                    type={rule.fieldType === 'number' ? 'number' : 'date'}
+                    value={value}
+                    aria-invalid={isError}
+                    aria-describedby={describedBy}
+                    min={rule.fieldType === 'number' && rule.minValue !== null ? String(rule.minValue) : undefined}
+                    max={rule.fieldType === 'number' && rule.maxValue !== null ? String(rule.maxValue) : undefined}
+                    onChange={(event) => {
+                      const next = event.target.value
+                      setDynamicValues((prev) => ({ ...prev, [rule.fieldKey]: next }))
+                    }}
+                    className="w-full rounded-md border border-[--color-border] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
+                  />
+                )}
+
+                {rule.helpText && (
+                  <p id={helpId} className="text-xs text-[--color-text-muted]">{rule.helpText}</p>
+                )}
+                {isError && (
+                  <p id={errorId} role="alert" className="text-xs text-red-600">
+                    {dynamicErrors[rule.fieldKey]}
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </fieldset>
+      )}
 
       {/* File attachment */}
       <div className="space-y-1">

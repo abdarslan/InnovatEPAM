@@ -1,10 +1,12 @@
 'use server'
 
-import { eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   ideas,
+  ideaCategoryFieldRules,
   ideaEvaluations,
+  ideaFieldValues,
   users,
   IDEA_STATUSES,
   type IdeaCategory,
@@ -12,12 +14,15 @@ import {
 } from '@/lib/db/schema'
 import { requireAuth } from '@/lib/auth/session'
 import {
+  collectDynamicFieldEntries,
   submitIdeaSchema,
+  type UpsertCategoryFieldRuleInput,
   updateIdeaSchema,
   startReviewSchema,
   evaluateIdeaSchema,
 } from '@/lib/ideas/validation'
 import { validateTransition } from '@/lib/ideas/transitions'
+import { getActiveRulesForCategory, validateDynamicFieldValues } from '@/lib/ideas/category-fields'
 
 export type { IdeaStatus }
 
@@ -28,6 +33,30 @@ export type { IdeaStatus }
 export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string }
+
+export type DynamicFieldType = 'text' | 'number' | 'date'
+
+export type CategoryFieldRule = {
+  id: number
+  category: IdeaCategory
+  fieldKey: string
+  label: string
+  fieldType: DynamicFieldType
+  required: boolean
+  minValue: number | null
+  maxValue: number | null
+  minLength: number | null
+  maxLength: number | null
+  helpText: string | null
+  sortOrder: number
+  isActive: boolean
+  updatedAt: number
+}
+
+export type IdeaDynamicFieldValue = {
+  fieldKey: string
+  value: string
+}
 
 // ---------------------------------------------------------------------------
 // List / detail shapes (no BLOB content)
@@ -58,6 +87,7 @@ export type IdeaDetail = IdeaListItem & {
   attachmentSize: number | null
   attachmentMimeType: string | null
   evaluation: IdeaEvaluationForSubmitter | null
+  dynamicFields: IdeaDynamicFieldValue[]
 }
 
 export type AdminIdeaListItem = IdeaListItem & {
@@ -69,6 +99,63 @@ export type AdminIdeaListItem = IdeaListItem & {
     comment: string | null
     createdAt: number
   } | null
+}
+
+// ---------------------------------------------------------------------------
+// getCategoryFieldRulesAction
+// ---------------------------------------------------------------------------
+
+export async function getCategoryFieldRulesAction(
+  category: IdeaCategory,
+): Promise<ActionResult<CategoryFieldRule[]>> {
+  try {
+    await requireAuth()
+  } catch {
+    return { ok: false, error: 'You must be logged in to load category rules.' }
+  }
+
+  try {
+    const rows = await db
+      .select({
+        id: ideaCategoryFieldRules.id,
+        category: ideaCategoryFieldRules.category,
+        fieldKey: ideaCategoryFieldRules.fieldKey,
+        label: ideaCategoryFieldRules.label,
+        fieldType: ideaCategoryFieldRules.fieldType,
+        required: ideaCategoryFieldRules.required,
+        minValue: ideaCategoryFieldRules.minValue,
+        maxValue: ideaCategoryFieldRules.maxValue,
+        minLength: ideaCategoryFieldRules.minLength,
+        maxLength: ideaCategoryFieldRules.maxLength,
+        helpText: ideaCategoryFieldRules.helpText,
+        sortOrder: ideaCategoryFieldRules.sortOrder,
+        isActive: ideaCategoryFieldRules.isActive,
+        updatedAt: ideaCategoryFieldRules.updatedAt,
+      })
+      .from(ideaCategoryFieldRules)
+      .where(
+        and(
+          eq(ideaCategoryFieldRules.category, category),
+          eq(ideaCategoryFieldRules.isActive, true),
+        ),
+      )
+      .orderBy(asc(ideaCategoryFieldRules.sortOrder))
+
+    const data: CategoryFieldRule[] = rows.map((row) => ({
+      ...row,
+      category: row.category as IdeaCategory,
+      fieldType: row.fieldType as UpsertCategoryFieldRuleInput['fieldType'],
+      minValue: row.minValue ?? null,
+      maxValue: row.maxValue ?? null,
+      minLength: row.minLength ?? null,
+      maxLength: row.maxLength ?? null,
+      helpText: row.helpText ?? null,
+    }))
+
+    return { ok: true, data }
+  } catch {
+    return { ok: false, error: 'Failed to load category rules. Please try again.' }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +248,11 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
       }
     }
 
+    const dynamicRows = await db
+      .select({ fieldKey: ideaFieldValues.fieldKey, value: ideaFieldValues.value })
+      .from(ideaFieldValues)
+      .where(eq(ideaFieldValues.ideaId, id))
+
     const data: IdeaDetail = {
       id: r.id,
       title: r.title,
@@ -176,6 +268,7 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
       attachmentMimeType: r.attachmentMimeType,
       hasAttachment: r.attachmentName !== null,
       evaluation,
+      dynamicFields: dynamicRows,
     }
     return { ok: true, data }
   } catch {
@@ -214,6 +307,14 @@ export async function submitIdeaAction(
 
   const { title, description, category, attachment } = parsed.data
 
+  const dynamicEntries = collectDynamicFieldEntries(formData)
+  const activeRules = await getActiveRulesForCategory(category)
+  const dynamicValidation = validateDynamicFieldValues(activeRules, dynamicEntries)
+  if (!dynamicValidation.ok) {
+    const firstError = Object.values(dynamicValidation.errors)[0] ?? 'Invalid dynamic field input.'
+    return { ok: false, error: firstError }
+  }
+
   let attachmentName: string | null = null
   let attachmentSize: number | null = null
   let attachmentMimeType: string | null = null
@@ -229,7 +330,7 @@ export async function submitIdeaAction(
   try {
     const now = Date.now()
     const result = db.transaction(() => {
-      return db
+      const inserted = db
         .insert(ideas)
         .values({
           title,
@@ -245,6 +346,28 @@ export async function submitIdeaAction(
         })
         .returning({ id: ideas.id })
         .all()
+
+      const insertedIdeaId = inserted[0].id
+      const dynamicValueRows = Object.entries(dynamicValidation.normalizedValues)
+        .map(([fieldKey, value]) => {
+          const rule = activeRules.find((r) => r.fieldKey === fieldKey)
+          if (!rule) return null
+          return {
+            ideaId: insertedIdeaId,
+            ruleId: rule.id,
+            fieldKey,
+            value,
+            createdAt: now,
+            updatedAt: now,
+          }
+        })
+        .filter((row): row is NonNullable<typeof row> => row !== null)
+
+      if (dynamicValueRows.length > 0) {
+        db.insert(ideaFieldValues).values(dynamicValueRows).run()
+      }
+
+      return inserted
     })
     return { ok: true, data: { id: result[0].id } }
   } catch {
