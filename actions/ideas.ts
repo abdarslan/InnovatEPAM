@@ -4,6 +4,7 @@ import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   ideaAttachments,
+  ideaDrafts,
   ideas,
   ideaCategoryFieldRules,
   ideaEvaluations,
@@ -419,6 +420,25 @@ export async function submitIdeaAction(
 
   const { title, description, category } = parsed.data
 
+  // T035: Parse optional draftId for atomic draft deletion on submit
+  const rawDraftId = formData.get('draftId')
+  const draftId =
+    typeof rawDraftId === 'string' && rawDraftId !== ''
+      ? parseInt(rawDraftId, 10)
+      : null
+
+  // T035: Verify ownership before any DB writes when draftId is provided
+  if (draftId !== null && Number.isFinite(draftId)) {
+    const draftRows = await db
+      .select({ submitterId: ideaDrafts.submitterId })
+      .from(ideaDrafts)
+      .where(eq(ideaDrafts.id, draftId))
+      .all()
+    if (draftRows.length === 0 || draftRows[0].submitterId !== session.userId) {
+      return { ok: false, error: 'Draft not found or access denied.' }
+    }
+  }
+
   const dynamicEntries = collectDynamicFieldEntries(formData)
   const activeRules = await getActiveRulesForCategory(category)
   const dynamicValidation = validateDynamicFieldValues(activeRules, dynamicEntries)
@@ -470,6 +490,11 @@ export async function submitIdeaAction(
 
       if (dynamicValueRows.length > 0) {
         tx.insert(ideaFieldValues).values(dynamicValueRows).run()
+      }
+
+      // T035: Atomically delete the source draft if draftId was provided
+      if (draftId !== null && Number.isFinite(draftId)) {
+        tx.delete(ideaDrafts).where(eq(ideaDrafts.id, draftId)).run()
       }
 
       return insertedIdea

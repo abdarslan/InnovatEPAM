@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { getCategoryFieldRulesAction, type CategoryFieldRule, type IdeaAttachmentMeta } from '@/actions/ideas'
 import { IDEA_CATEGORIES, type IdeaCategory } from '@/lib/db/schema'
-import { submitIdeaSchema, type SubmitIdeaInput } from '@/lib/ideas/validation'
+import { submitIdeaSchema, type SubmitIdeaFormValues } from '@/lib/ideas/validation'
 import {
   MAX_ATTACHMENTS_PER_IDEA,
   MAX_TOTAL_ATTACHMENT_SIZE_BYTES,
@@ -13,6 +13,7 @@ import {
   validateAttachmentFiles,
 } from '@/lib/ideas/validation'
 import type { ActionResult } from '@/actions/ideas'
+import type { IdeaDraftDetail } from '@/actions/idea-drafts'
 
 const CATEGORY_LABELS: Record<IdeaCategory, string> = {
   process_improvement: 'Process Improvement',
@@ -68,26 +69,40 @@ function getAttachmentError(
 
 type IdeaFormProps = {
   action: (formData: FormData) => Promise<ActionResult<{ id: number } | void>>
-  defaultValues?: Partial<SubmitIdeaInput>
+  draftAction?: (formData: FormData) => Promise<ActionResult<{ draftId: number }>>
+  defaultValues?: Partial<SubmitIdeaFormValues>
+  draftDefaultValues?: IdeaDraftDetail
   onSuccess?: (id?: number) => void
+  onDraftSaved?: (draftId: number) => void
   submitLabel?: string
   existingAttachments?: IdeaAttachmentMeta[]
 }
 
 export default function IdeaForm({
   action,
+  draftAction,
   defaultValues,
+  draftDefaultValues,
   onSuccess,
+  onDraftSaved,
   submitLabel = 'Submit Idea',
   existingAttachments = [],
 }: IdeaFormProps) {
   const [isPending, startTransition] = useTransition()
+  const [isDraftPending, startDraftTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
+  const [draftError, setDraftError] = useState<string | null>(null)
+  const [draftSavedMessage, setDraftSavedMessage] = useState<string | null>(null)
+  const [currentDraftId, setCurrentDraftId] = useState<number | undefined>(
+    draftDefaultValues?.id,
+  )
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
   const [removedAttachmentIds, setRemovedAttachmentIds] = useState<number[]>([])
   const [dynamicRules, setDynamicRules] = useState<CategoryFieldRule[]>([])
-  const [dynamicValues, setDynamicValues] = useState<Record<string, string>>({})
+  const [dynamicValues, setDynamicValues] = useState<Record<string, string>>(
+    draftDefaultValues?.fieldValues ?? {},
+  )
   const [dynamicErrors, setDynamicErrors] = useState<Record<string, string>>({})
   const [dynamicRulesError, setDynamicRulesError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -98,16 +113,30 @@ export default function IdeaForm({
     reset,
     watch,
     formState: { errors },
-  } = useForm<SubmitIdeaInput>({
+  } = useForm<SubmitIdeaFormValues>({
     resolver: zodResolver(submitIdeaSchema),
     defaultValues: {
-      title: defaultValues?.title ?? '',
-      description: defaultValues?.description ?? '',
-      category: defaultValues?.category,
+      title: draftDefaultValues?.title ?? defaultValues?.title ?? '',
+      description: draftDefaultValues?.description ?? defaultValues?.description ?? '',
+      category: (draftDefaultValues?.category as SubmitIdeaFormValues['category'] | undefined) ?? defaultValues?.category,
     },
   })
 
   const selectedCategory = watch('category')
+
+  // Sync form fields + dynamic values when draft loads asynchronously (draftDefaultValues starts
+  // as undefined on first render because the page fetches the draft after mount).
+  useEffect(() => {
+    if (!draftDefaultValues) return
+    reset({
+      title: draftDefaultValues.title ?? '',
+      description: draftDefaultValues.description ?? '',
+      category: (draftDefaultValues.category as SubmitIdeaFormValues['category'] | undefined) ?? undefined,
+    })
+    setDynamicValues(draftDefaultValues.fieldValues ?? {})
+    setCurrentDraftId(draftDefaultValues.id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftDefaultValues?.id])
 
   useEffect(() => {
     const category = selectedCategory as IdeaCategory | undefined
@@ -219,7 +248,47 @@ export default function IdeaForm({
     return Object.keys(nextErrors).length === 0
   }
 
-  function onSubmit(data: SubmitIdeaInput) {
+  // T019/T020: Save Draft handler — relaxed validation, no required fields
+  function onSaveDraft() {
+    if (!draftAction) return
+    setDraftError(null)
+    setDraftSavedMessage(null)
+
+    startDraftTransition(async () => {
+      const formData = new FormData()
+      if (currentDraftId !== undefined) formData.set('draftId', String(currentDraftId))
+
+      const titleValue = (document.getElementById('title') as HTMLInputElement | null)?.value ?? ''
+      const descriptionValue = (document.getElementById('description') as HTMLTextAreaElement | null)?.value ?? ''
+      const categoryValue = (document.getElementById('category') as HTMLSelectElement | null)?.value ?? ''
+
+      if (titleValue.trim()) formData.set('title', titleValue.trim())
+      if (descriptionValue.trim()) formData.set('description', descriptionValue.trim())
+      if (categoryValue) formData.set('category', categoryValue)
+
+      for (const rule of dynamicRules) {
+        const value = (dynamicValues[rule.fieldKey] ?? '').trim()
+        if (value.length > 0) formData.set(`dynamic_${rule.fieldKey}`, value)
+      }
+
+      for (const attachment of pendingAttachments) formData.append('attachments', attachment.file)
+
+      const result = await draftAction(formData)
+      if (!result.ok) {
+        setDraftError(result.error)
+        return
+      }
+
+      setCurrentDraftId(result.data.draftId)
+      setDraftSavedMessage('Draft saved.')
+      onDraftSaved?.(result.data.draftId)
+
+      // Clear the success message after 3 s
+      setTimeout(() => setDraftSavedMessage(null), 3000)
+    })
+  }
+
+  function onSubmit(data: SubmitIdeaFormValues) {
     setServerError(null)
     const currentAttachmentError = getAttachmentError(pendingAttachments, existingAttachments, removedAttachmentIds)
     if (currentAttachmentError) { setAttachmentError(currentAttachmentError); return }
@@ -266,6 +335,18 @@ export default function IdeaForm({
         <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
           {serverError}
         </div>
+      )}
+
+      {/* T020: Draft feedback */}
+      {draftError && (
+        <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+          {draftError}
+        </div>
+      )}
+      {draftSavedMessage && (
+        <p aria-live="polite" className="text-sm text-green-700">
+          {draftSavedMessage}
+        </p>
       )}
 
       {/* Title */}
@@ -424,9 +505,18 @@ export default function IdeaForm({
           onChange={(e) => {
             const files = Array.from(e.target.files ?? [])
             if (files.length === 0) return
+            const newAttachments = files.map((file, index) => createPendingAttachment(file, index))
+            const remainingExisting = existingAttachments.filter((a) => !removedAttachmentIds.includes(a.id))
+            const totalAfter = remainingExisting.length + pendingAttachments.length + newAttachments.length
+            if (totalAfter > MAX_ATTACHMENTS_PER_IDEA) {
+              setAttachmentError('You can upload up to 5 attachments.')
+              e.target.value = ''
+              return
+            }
+            setAttachmentError(null)
             setPendingAttachments((current) => [
               ...current,
-              ...files.map((file, index) => createPendingAttachment(file, index)),
+              ...newAttachments,
             ])
             e.target.value = ''
           }}
@@ -475,13 +565,28 @@ export default function IdeaForm({
         )}
       </div>
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {isPending ? 'Saving\u2026' : submitLabel}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={isPending || isDraftPending}
+          className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isPending ? 'Saving\u2026' : submitLabel}
+        </button>
+
+        {/* T019: Save Draft button — only rendered when draftAction is provided */}
+        {draftAction && (
+          <button
+            type="button"
+            disabled={isPending || isDraftPending}
+            onClick={onSaveDraft}
+            aria-label="Save draft"
+            className="rounded-md border border-[--color-border] px-5 py-2 text-sm font-medium text-[--color-text] hover:bg-[--color-surface] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isDraftPending ? 'Saving draft\u2026' : 'Save Draft'}
+          </button>
+        )}
+      </div>
     </form>
   )
 }

@@ -1,14 +1,36 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import IdeaForm from '@/components/ideas/IdeaForm'
 import { submitIdeaAction } from '@/actions/ideas'
+import { upsertIdeaDraftAction, getIdeaDraftDetailAction, type IdeaDraftDetail } from '@/actions/idea-drafts'
 import Link from 'next/link'
-import { useState } from 'react'
 
 export default function NewIdeaPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const draftIdParam = searchParams.get('draftId')
+
   const [successId, setSuccessId] = useState<number | null>(null)
+  const [draftDetail, setDraftDetail] = useState<IdeaDraftDetail | null>(null)
+  const [draftLoadError, setDraftLoadError] = useState<string | null>(null)
+
+  // T021/T033: Load draft prefill data when ?draftId= is present
+  useEffect(() => {
+    if (!draftIdParam) return
+    const id = parseInt(draftIdParam, 10)
+    if (Number.isNaN(id)) return
+
+    void (async () => {
+      const result = await getIdeaDraftDetailAction(id)
+      if (!result.ok) {
+        setDraftLoadError('Could not load draft. It may have been deleted.')
+        return
+      }
+      setDraftDetail(result.data)
+    })()
+  }, [draftIdParam])
 
   if (successId !== null) {
     return (
@@ -52,11 +74,37 @@ export default function NewIdeaPage() {
           Share your innovation idea with the team.
         </p>
       </div>
+
+      {draftLoadError && (
+        <div role="alert" className="mb-4 rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
+          {draftLoadError}
+        </div>
+      )}
+
       <IdeaForm
-        action={submitIdeaAction}
+        action={async (formData) => {
+          // T035: Pass draftId so submitIdeaAction can delete draft atomically
+          if (draftDetail?.id !== undefined) {
+            formData.set('draftId', String(draftDetail.id))
+          }
+          return submitIdeaAction(formData)
+        }}
+        draftAction={upsertIdeaDraftAction}
+        draftDefaultValues={draftDetail ?? undefined}
+        existingAttachments={draftDetail?.attachments}
         onSuccess={(id) => {
           if (id !== undefined) setSuccessId(id)
           else router.push('/ideas')
+        }}
+        onDraftSaved={(savedId) => {
+          // Keep draftDetail.id in sync so the final submit can pass draftId
+          setDraftDetail((prev) =>
+            prev ? { ...prev, id: savedId } : { id: savedId, title: null, description: null, category: null, updatedAt: Date.now(), attachments: [], fieldValues: {} },
+          )
+          // Update URL without navigation so page refresh re-loads the correct draft
+          const url = new URL(window.location.href)
+          url.searchParams.set('draftId', String(savedId))
+          window.history.replaceState(null, '', url.toString())
         }}
       />
     </div>
