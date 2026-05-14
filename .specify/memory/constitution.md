@@ -68,13 +68,13 @@ Every operation that can fail MUST have explicit, user-facing error handling.
 ### VI. Architecture Decision Records
 Every significant technical choice MUST be recorded before implementation begins.
 - During the `/speckit.plan` phase, any significant technical decision (e.g., introducing a new framework,
-  database, API pattern, or third-party service) MUST produce an `adr-XXXX.md` file in `docs/adrs/`
+  database, API pattern, or third-party service) MUST produce an `adr-XXXX-[something]-decision.md` file in `docs/adrs/`
   using the standard **MADR** (Markdown Architecture Decision Record) format.
 - The ADR MUST be created before `tasks.md` is generated — it is a gate on the `/speckit.tasks` command.
-- ADR filenames MUST be zero-padded four-digit sequential integers (e.g., `adr-0001.md`, `adr-0002.md`).
+- ADR filenames MUST include zero-padded four-digit sequential integers.
 - Each ADR MUST include at minimum: **Title**, **Status**, **Context**, **Decision**, **Consequences**.
 - ADRs are immutable once status is `Accepted`; superseding decisions MUST create a new ADR and
-  set the prior ADR's status to `Superseded by adr-XXXX`.
+  set the prior ADR's status to `Superseded by adr-XXXX-[something]-decision.md`.
 
 ### VII. TypeScript Strict Mode (NON-NEGOTIABLE)
 All TypeScript source MUST compile with `"strict": true` in `tsconfig.json`. No exceptions.
@@ -257,8 +257,7 @@ To prevent git hooks from blocking documentation phases while still protecting t
   skipped silently.
 
 **Rationale**: Atomic, task-aligned commits ensure the Next.js build is never broken by a massive
-code dump. It makes every step independently reviewable, simplifies bisect debugging for bootcamp
-grading, and ensures safe rollback points if a specific UI component or Server Action goes off the
+code dump. It makes every step independently reviewable, simplifies bisect debugging and ensures safe rollback points if a specific UI component or Server Action goes off the
 rails during implementation.
 
 **Version**: 1.3.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-14

@@ -75,15 +75,18 @@ An administrator deactivates a user account (e.g., when an employee leaves EPAM)
 1. **Given** an admin user, **When** they deactivate a submitter account, **Then** the account status changes to `inactive` and a confirmation is shown.
 2. **Given** an `inactive` user, **When** they attempt to log in, **Then** they are shown a clear message: "Your account has been deactivated. Please contact your administrator."
 3. **Given** a currently logged-in user whose account is deactivated mid-session, **When** their session expires and they attempt to re-authenticate, **Then** the login is blocked with the deactivation message.
+4. **Given** any user viewing the access-denied page, **Then** the page shows the title `Access denied`, the message `You do not have permission to access this page.`, and a button that returns them to their role-appropriate dashboard.
+5. **Given** an `admin` user who navigates to a submitter-only page, **Then** they are redirected to `/access-denied` with the same explanation shown for submitter-role violations.
 
 ---
 
 ### Edge Cases
 
 - Registration with a non-`@epam.com` email MUST be rejected with: "Only @epam.com email addresses are permitted."
-- How does the system behave when the session expires mid-navigation?
+- When a session expires mid-navigation, the user MUST be redirected to the login page, the original URL MUST be preserved, and the login page MUST show a session-expired message.
+- Rapid duplicate submissions of the login form MUST be ignored while the initial login request is pending; the submit button is disabled during the pending state.
 - What happens if a user submits the login form multiple times rapidly (brute-force attempt)? After 5 consecutive failed attempts the account is locked for 15 minutes; the user MUST be shown a clear message stating when they can try again.
-- How does the system handle concurrent login sessions from different devices?
+- Concurrent login sessions from different devices are permitted; each device maintains its own session cookie.
 - What if an admin accidentally navigates to a submitter-only page?
 
 ## Requirements *(mandatory)*
@@ -101,8 +104,11 @@ An administrator deactivates a user account (e.g., when an employee leaves EPAM)
 - **FR-008**: System MUST maintain a persistent authenticated session across page navigations with an 8-hour sliding expiry (inactivity beyond 8 hours terminates the session).
 - **FR-009**: System MUST allow users to log out, fully terminating their session.
 - **FR-010**: System MUST enforce role-based access control, blocking submitters from admin routes and vice versa.
+- For v1, the admin-only routes are `/admin/dashboard` and `/admin/users`.
 - **FR-011**: System MUST redirect unauthenticated users to the login page when they attempt to access protected routes, preserving the intended destination URL.
 - **FR-012**: System MUST display role-appropriate navigation and UI elements based on the authenticated user's role.
+- `submitter` navigation shows `Dashboard` and `Logout` only.
+- `admin` navigation shows `Dashboard`, `Users`, and `Logout`.
 - **FR-013**: System MUST support the two roles: `submitter` and `admin`.
 - **FR-014**: System MUST allow `admin` users to deactivate any user account; deactivated accounts MUST be blocked at login with the message: "Your account has been deactivated. Please contact your administrator."
 - **FR-015**: Admin accounts MUST be created through a seeding or back-office mechanism — not through the public registration form.
@@ -117,6 +123,8 @@ An administrator deactivates a user account (e.g., when an employee leaves EPAM)
 
 ### Measurable Outcomes
 
+All timing-based success criteria are measured on a standard desktop/laptop browser in a local production build under normal office-network conditions.
+
 - **SC-001**: A new user can complete registration in under 2 minutes from first visiting the page.
 - **SC-002**: A registered user can log in and reach their dashboard in under 30 seconds.
 - **SC-003**: 100% of admin-only routes reject submitter-role users with an appropriate response.
@@ -124,6 +132,8 @@ An administrator deactivates a user account (e.g., when an employee leaves EPAM)
 - **SC-005**: Login and registration forms display inline validation errors without a full page reload.
 - **SC-006**: Session persists correctly across browser tab navigation without requiring re-login.
 - **SC-007**: An authenticated session expires after **8 hours of inactivity**; activity within the window resets the expiry (sliding).
+- **SC-008**: 100% of admin deactivation actions show a visible confirmation to the admin and block the deactivated account from the next login attempt with the required deactivation message.
+- **SC-009**: After **5 consecutive failed login attempts**, the account is locked for **15 minutes** and the lockout message shows the remaining time in a human-readable format.
 
 ## Clarifications
 
@@ -134,6 +144,7 @@ An administrator deactivates a user account (e.g., when an employee leaves EPAM)
 - Q: What password policy should be enforced at registration? → A: Minimum 8 characters, at least 1 uppercase letter and 1 number
 - Q: How should repeated failed login attempts be handled? → A: Soft lockout — account locked for 15 minutes after 5 consecutive failed attempts
 - Q: What is the scope of account active/inactive status for v1? → A: Admins can deactivate accounts; deactivated users are blocked at login with a clear message
+- Q: What measurable success criteria should be added for admin account deactivation? → A: 100% of admin deactivation actions show a visible confirmation to the admin and block the deactivated account from the next login attempt with the required deactivation message.
 
 ## Assumptions
 
@@ -143,6 +154,10 @@ An administrator deactivates a user account (e.g., when an employee leaves EPAM)
 - Admin accounts are provisioned via a database seed or admin CLI tool, not the public registration UI.
 - Email verification on registration is not required for v1 (assumed trusted internal network context).
 - Account deactivation is an admin-only action; users cannot deactivate their own accounts in v1.
+- Concurrent login sessions from different devices are permitted; there is no single-session enforcement in v1.
+- When a session expires mid-navigation, the login page shows a session-expired message after redirect.
+- The login form disables the submit button while a login request is pending to prevent duplicate submissions.
+- Admin deactivation does not change `failed_attempts` or `locked_until`; those values are only changed by login attempts.
 - Session lifetime is **8 hours sliding** — the expiry resets on each authenticated request; inactivity beyond 8 hours requires re-login.
 
 ## Constitution Constraints *(non-negotiable)*
@@ -153,6 +168,7 @@ The following constraints are mandated by the project constitution and MUST NOT 
 - **TypeScript Strict Mode**: All source files MUST compile with `"strict": true`; `any` is FORBIDDEN without an inline disable comment and PR justification; `===` MUST be used throughout; `null`/`undefined` MUST be handled explicitly.
 - **Accessibility**: All non-text content MUST have text alternatives; text contrast ≥ 4.5:1 (WCAG AA).
 - **Error Handling**: Every async operation MUST have explicit error handling; error/loading/empty states are required for all auth forms and redirects.
+- **Auth UI States**: Registration, login, access-denied, and deactivated-account screens MUST render loading and error states as appropriate; no auth screen may render a blank or empty state.
 - **Dependencies**: No new auth dependency without documented justification aligned with Principle III.
 - **Styling**: Tailwind utility classes only — no custom CSS without constitutional amendment.
 - **Testing**: Unit/component tests MUST use Vitest + React Testing Library; E2E tests (covering registration, login, and admin role-enforcement flows) MUST use Playwright; integration tests for auth server actions and session logic MUST run against a real SQLite test database; core auth business-logic modules MUST achieve ≥ 80% line coverage.
