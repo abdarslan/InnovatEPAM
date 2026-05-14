@@ -321,7 +321,7 @@ export default function IdeaForm({
           className="w-full rounded-md border border-[--color-border] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
           {...register('category')}
         >
-          <option value="">Select a categoryΓÇª</option>
+          <option value="">Select a category...</option>
           {IDEA_CATEGORIES.map((cat) => (
             <option key={cat} value={cat}>
               {CATEGORY_LABELS[cat]}
@@ -480,7 +480,7 @@ export default function IdeaForm({
         disabled={isPending}
         className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isPending ? 'SavingΓÇª' : submitLabel}
+        {isPending ? 'Saving...' : submitLabel}
       </button>
     </form>
   )

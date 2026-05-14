@@ -109,11 +109,11 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                 {CATEGORY_LABELS[idea.category]}
               </span>
               <span>{idea.submitterName}</span>
-              <span>┬╖</span>
+              <span>|</span>
               <span>{formatDate(idea.createdAt)}</span>
               {idea.hasAttachment && (
                 <>
-                  <span>┬╖</span>
+                  <span>|</span>
                   <span className="text-[--color-info]">{attachmentLabel(idea.attachmentCount)}</span>
                 </>
               )}
@@ -122,7 +122,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
           <div className="ml-3 flex items-center gap-2 shrink-0">
             <StatusBadge status={idea.status} />
             <span className="text-[--color-text-muted]" aria-hidden="true">
-              {isOpen ? 'Γû▓' : 'Γû╝'}
+              {isOpen ? 'v' : '>'}
             </span>
           </div>
         </CollapsibleTrigger>
@@ -132,7 +132,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
           <div className="border-t border-[--color-border] px-4 py-4 space-y-4">
             {isLoading && (
               <p className="text-sm text-[--color-text-muted]" aria-live="polite">
-                LoadingΓÇª
+                Loading...
               </p>
             )}
             {loadError && (
