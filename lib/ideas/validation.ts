@@ -40,3 +40,30 @@ export const updateIdeaSchema = submitIdeaSchema
 
 export type SubmitIdeaInput = z.infer<typeof submitIdeaSchema>
 export type UpdateIdeaInput = z.infer<typeof updateIdeaSchema>
+
+// ---------------------------------------------------------------------------
+// Evaluation workflow
+// ---------------------------------------------------------------------------
+
+export const startReviewSchema = z.object({
+  ideaId: z.number().int().positive(),
+})
+
+export const evaluateIdeaSchema = z.discriminatedUnion('status', [
+  z.object({
+    status:  z.literal('accepted'),
+    ideaId:  z.number().int().positive(),
+    comment: z.string().max(1000).optional(),
+  }),
+  z.object({
+    status:  z.literal('rejected'),
+    ideaId:  z.number().int().positive(),
+    comment: z
+      .string()
+      .min(1, { message: 'Rejection reason is required.' })
+      .max(1000, { message: 'Comment must be 1000 characters or fewer.' }),
+  }),
+])
+
+export type StartReviewInput  = z.infer<typeof startReviewSchema>
+export type EvaluateIdeaInput = z.infer<typeof evaluateIdeaSchema>
