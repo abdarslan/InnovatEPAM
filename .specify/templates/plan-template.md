@@ -40,7 +40,13 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- [ ] **I. Clean Code** — Functions are single-purpose; no dead code; names are intention-revealing.
+- [ ] **II. Simple UI/UX** — Tailwind-only styling; shadcn/ui components used; mobile-first responsive layout.
+- [ ] **III. Minimal Dependencies** — No new dependency added without justification; `npm audit` passes clean.
+- [ ] **IV. Accessibility** — All images/icons have text alternatives; contrast ≥ 4.5:1; keyboard-navigable.
+- [ ] **V. Error Handling** — All async paths have try/catch or error boundaries; error/loading/empty states designed.
+- [ ] **VI. ADRs** — Every significant technical choice made during this plan has a corresponding `docs/adrs/adr-XXXX.md` (MADR format) created before `tasks.md` is generated.
+- [ ] **Stack** — Next.js App Router + React 18+ + Tailwind + shadcn/ui + TypeScript strict mode.
 
 ## Project Structure
 

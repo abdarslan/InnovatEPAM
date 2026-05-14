@@ -52,6 +52,7 @@ description: "Task list template for feature implementation"
 - [ ] T001 Create project structure per implementation plan
 - [ ] T002 Initialize [language] project with [framework] dependencies
 - [ ] T003 [P] Configure linting and formatting tools
+- [ ] T004 [P] Create `docs/adrs/` directory and record ADRs for all significant technical decisions made during planning
 
 ---
 
@@ -67,8 +68,10 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T005 [P] Implement authentication/authorization framework
 - [ ] T006 [P] Setup API routing and middleware structure
 - [ ] T007 Create base models/entities that all stories depend on
-- [ ] T008 Configure error handling and logging infrastructure
+- [ ] T008 Configure global error handling: root `error.tsx`, `not-found.tsx`, and React error boundaries
 - [ ] T009 Setup environment configuration management
+- [ ] T010 [P] Configure Tailwind CSS with shadcn/ui theme tokens and accessible color palette (contrast ≥ 4.5:1)
+- [ ] T011 [P] Add `sr-only` utility patterns and icon accessibility conventions to shared component library
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 

@@ -129,3 +129,13 @@
 - [Assumption about scope boundaries, e.g., "Mobile support is out of scope for v1"]
 - [Assumption about data/environment, e.g., "Existing authentication system will be reused"]
 - [Dependency on existing system/service, e.g., "Requires access to the existing user profile API"]
+
+## Constitution Constraints *(non-negotiable)*
+
+The following constraints are mandated by the project constitution and MUST NOT be relaxed:
+
+- **Stack**: Next.js App Router, React 18+, Tailwind CSS, shadcn/ui, TypeScript strict mode.
+- **Accessibility**: All non-text content MUST have text alternatives; text contrast ≥ 4.5:1 (WCAG AA).
+- **Error Handling**: Every async operation MUST have explicit error handling; error/loading/empty states are required.
+- **Dependencies**: No new dependency without documented justification aligned with Principle III.
+- **Styling**: Tailwind utility classes only — no custom CSS without constitutional amendment.
