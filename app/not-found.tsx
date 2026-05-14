@@ -10,7 +10,7 @@ export default function NotFound() {
       </p>
       <Link
         href="/login"
-        className="rounded-md bg-[--color-primary] px-4 py-2 text-white hover:bg-[--color-primary-dark]"
+        className="rounded-md bg-primary px-4 py-2 text-white hover:bg-primary-dark"
       >
         Go to Login
       </Link>

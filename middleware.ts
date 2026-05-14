@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Protected routes: require authentication
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/admin') || pathname.startsWith('/access-denied')) {
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/admin') || pathname.startsWith('/access-denied') || pathname.startsWith('/ideas')) {
     if (!isAuthenticated) {
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('returnUrl', pathname)
@@ -63,5 +63,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/admin/:path*', '/access-denied', '/login', '/register'],
+  matcher: ['/dashboard/:path*', '/admin/:path*', '/access-denied', '/ideas/:path*', '/login', '/register'],
 }

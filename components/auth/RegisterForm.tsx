@@ -110,7 +110,7 @@ export default function RegisterForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="flex items-center justify-center gap-2 rounded-md bg-[--color-primary] px-4 py-2 text-sm font-medium text-white hover:bg-[--color-primary-dark] disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
+        className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary"
         aria-busy={isPending}
       >
         {isPending ? (

@@ -6,7 +6,7 @@ export default function AuthLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[--color-surface] px-4 py-12">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-surface px-4 py-12">
       <div className="mb-8 text-center">
         <h2 className="text-xl font-bold text-[--color-primary]">InnovatEPAM Portal</h2>
       </div>

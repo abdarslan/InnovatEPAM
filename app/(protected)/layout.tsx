@@ -17,7 +17,7 @@ export default async function ProtectedLayout({
   const { displayName, role } = session
 
   return (
-    <div className="min-h-screen bg-[--color-surface]">
+    <div className="min-h-screen bg-surface">
       <nav className="border-b border-[--color-border] bg-white px-6 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-6">
@@ -45,6 +45,12 @@ export default async function ProtectedLayout({
                 Dashboard
               </Link>
             )}
+            <Link
+              href="/ideas"
+              className="text-sm text-[--color-text] hover:text-[--color-primary]"
+            >
+              Ideas
+            </Link>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-[--color-text-muted]">{displayName}</span>

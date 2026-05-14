@@ -51,7 +51,7 @@ export default function UserTable({ users: initialUsers }: Props) {
 
       <div className="overflow-x-auto rounded-lg border border-[--color-border]">
         <table className="w-full text-sm">
-          <thead className="bg-[--color-surface]">
+          <thead className="bg-surface">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-[--color-text-muted]">Email</th>
               <th className="px-4 py-3 text-left font-medium text-[--color-text-muted]">Display Name</th>
