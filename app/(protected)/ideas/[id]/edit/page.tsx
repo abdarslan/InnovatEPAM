@@ -68,6 +68,7 @@ export default function EditIdeaPage({ params }: EditIdeaPageProps) {
           description: detail.description,
           category: detail.category,
         }}
+        existingAttachments={detail.attachments}
         onSuccess={() => router.push('/ideas')}
         submitLabel="Save changes"
       />
