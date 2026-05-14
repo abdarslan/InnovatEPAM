@@ -48,11 +48,17 @@ describe('IdeaForm', () => {
     await user.type(screen.getByLabelText(/title/i), 'My Idea Title')
     await user.type(screen.getByLabelText(/description/i), 'This is a long enough description for the idea.')
     await user.selectOptions(screen.getByLabelText(/category/i), 'process_improvement')
+    const fileOne = new File(['file-one'], 'summary.pdf', { type: 'application/pdf' })
+    const fileTwo = new File(['file-two'], 'preview.png', { type: 'image/png' })
+    await user.upload(screen.getByLabelText(/attachments/i), [fileOne, fileTwo])
+    await user.click(screen.getAllByRole('button', { name: /remove/i })[0])
     await user.click(screen.getByRole('button', { name: /submit idea/i }))
     await waitFor(() => expect(mockSuccessAction).toHaveBeenCalledTimes(1))
     const formData: FormData = mockSuccessAction.mock.calls[0][0]
     expect(formData.get('title')).toBe('My Idea Title')
     expect(formData.get('category')).toBe('process_improvement')
+    expect(formData.getAll('attachments')).toHaveLength(1)
+    expect((formData.getAll('attachments')[0] as File).name).toBe('preview.png')
   })
 
   it('displays server error returned from action', async () => {
@@ -74,5 +80,13 @@ describe('IdeaForm', () => {
     await user.selectOptions(screen.getByLabelText(/category/i), 'workplace_culture')
     await user.click(screen.getByRole('button', { name: /submit idea/i }))
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(1))
+  })
+
+  it('shows attachment validation feedback when too many files are selected', async () => {
+    const user = userEvent.setup()
+    render(<IdeaForm action={mockSuccessAction} />)
+    const files = Array.from({ length: 6 }, (_, index) => new File([`file-${index}`], `asset-${index}.pdf`, { type: 'application/pdf' }))
+    await user.upload(screen.getByLabelText(/attachments/i), files)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/up to 5 attachments/i)
   })
 })

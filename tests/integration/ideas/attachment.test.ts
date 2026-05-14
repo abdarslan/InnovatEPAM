@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import * as schema from '@/lib/db/schema'
-import { ideas, users } from '@/lib/db/schema'
+import { ideaAttachments, ideas, users } from '@/lib/db/schema'
 import { hashPassword } from '@/lib/auth/password'
 
 let testDbFile: Database.Database
@@ -51,16 +51,23 @@ function seedIdeaWithAttachment(submitterId: number) {
       description: 'Has an attachment.',
       category: 'technology_innovation',
       submitterId,
-      attachmentName: 'report.pdf',
-      attachmentSize: content.byteLength,
-      attachmentMimeType: 'application/pdf',
-      attachmentContent: content,
       createdAt: now,
       updatedAt: now,
     })
     .returning({ id: ideas.id })
     .all()
-  return result[0].id
+
+  const attachment = testDb.insert(ideaAttachments).values({
+    ideaId: result[0].id,
+    originalName: 'report.pdf',
+    mimeType: 'application/pdf',
+    sizeBytes: content.byteLength,
+    previewEligible: true,
+    content,
+    createdAt: now,
+  }).returning({ id: ideaAttachments.id }).all()
+
+  return { ideaId: result[0].id, attachmentId: attachment[0].id }
 }
 
 function seedIdeaWithoutAttachment(submitterId: number) {
@@ -72,10 +79,6 @@ function seedIdeaWithoutAttachment(submitterId: number) {
       description: 'No attachment here.',
       category: 'cost_reduction',
       submitterId,
-      attachmentName: null,
-      attachmentSize: null,
-      attachmentMimeType: null,
-      attachmentContent: null,
       createdAt: now,
       updatedAt: now,
     })
@@ -98,7 +101,7 @@ describe('deleteIdeaAction (auth behaviour)', () => {
       createdAt: Date.now(),
     }).returning({ id: users.id }).all()
     const otherId = otherResult[0].id
-    const ideaId = seedIdeaWithAttachment(ownerId)
+    const { ideaId } = seedIdeaWithAttachment(ownerId)
 
     vi.doMock('@/lib/db', () => ({ db: testDb }))
     vi.doMock('@/lib/auth/session', () => ({
@@ -150,7 +153,23 @@ describe('Attachment download (route handler logic)', () => {
 
   it('returns binary content with correct headers for authenticated request', async () => {
     const userId = await seedUser()
-    const ideaId = seedIdeaWithAttachment(userId)
+    const { ideaId, attachmentId } = seedIdeaWithAttachment(userId)
+    vi.doMock('@/lib/db', () => ({ db: testDb }))
+    vi.doMock('@/lib/auth/session', () => ({
+      requireAuth: vi.fn().mockResolvedValue({ userId, role: 'submitter', email: 'test@example.com', displayName: 'Test' }),
+    }))
+    const { GET } = await import('@/app/api/ideas/[id]/attachments/[attachmentId]/route')
+    const req = new Request(`http://localhost/api/ideas/${ideaId}/attachments/${attachmentId}`)
+    const res = await GET(req as never, { params: Promise.resolve({ id: String(ideaId), attachmentId: String(attachmentId) }) })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toBe('application/pdf')
+    expect(res.headers.get('Content-Disposition')).toContain('inline')
+    expect(res.headers.get('Content-Disposition')).toContain('report.pdf')
+  })
+
+  it('legacy attachment route streams the first attachment for compatibility', async () => {
+    const userId = await seedUser()
+    const { ideaId } = seedIdeaWithAttachment(userId)
     vi.doMock('@/lib/db', () => ({ db: testDb }))
     vi.doMock('@/lib/auth/session', () => ({
       requireAuth: vi.fn().mockResolvedValue({ userId, role: 'submitter', email: 'test@example.com', displayName: 'Test' }),
@@ -159,7 +178,6 @@ describe('Attachment download (route handler logic)', () => {
     const req = new Request(`http://localhost/api/ideas/${ideaId}/attachment`)
     const res = await GET(req as never, { params: Promise.resolve({ id: String(ideaId) }) })
     expect(res.status).toBe(200)
-    expect(res.headers.get('Content-Type')).toBe('application/pdf')
     expect(res.headers.get('Content-Disposition')).toContain('report.pdf')
   })
 })

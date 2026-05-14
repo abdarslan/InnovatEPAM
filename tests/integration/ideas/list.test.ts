@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import * as schema from '@/lib/db/schema'
-import { ideas, users } from '@/lib/db/schema'
+import { ideaAttachments, ideas, users } from '@/lib/db/schema'
 import { hashPassword } from '@/lib/auth/password'
 
 let testDbFile: Database.Database
@@ -50,10 +50,6 @@ function seedIdea(submitterId: number, overrides: Partial<schema.NewIdea> = {}) 
       description: 'A detailed description of this test idea.',
       category: 'workplace_culture',
       submitterId,
-      attachmentName: null,
-      attachmentSize: null,
-      attachmentMimeType: null,
-      attachmentContent: null,
       createdAt: now,
       updatedAt: now,
       ...overrides,
@@ -61,6 +57,18 @@ function seedIdea(submitterId: number, overrides: Partial<schema.NewIdea> = {}) 
     .returning({ id: ideas.id })
     .all()
   return result[0].id
+}
+
+function seedAttachment(ideaId: number, name = 'report.pdf', mimeType = 'application/pdf') {
+  testDb.insert(ideaAttachments).values({
+    ideaId,
+    originalName: name,
+    mimeType,
+    sizeBytes: 4,
+    previewEligible: true,
+    content: Buffer.from([37, 80, 68, 70]),
+    createdAt: Date.now(),
+  }).run()
 }
 
 function mockAuth(userId: number, role: 'submitter' | 'admin' = 'submitter') {
@@ -76,12 +84,15 @@ describe('getIdeasAction', () => {
     mockAuth(userId)
     const id1 = seedIdea(userId, { createdAt: 1000, updatedAt: 1000, title: 'Old Idea' })
     const id2 = seedIdea(userId, { createdAt: 2000, updatedAt: 2000, title: 'New Idea' })
+    seedAttachment(id2)
     const { getIdeasAction } = await import('@/actions/ideas')
     const result = await getIdeasAction()
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data[0].id).toBe(id2)
     expect(result.data[1].id).toBe(id1)
+    expect(result.data[0].attachmentCount).toBe(1)
+    expect(result.data[0].hasAttachment).toBe(true)
   })
 
   it('returns empty array when no ideas exist', async () => {
@@ -112,12 +123,15 @@ describe('getIdeaDetailAction', () => {
     const userId = await seedUser()
     mockAuth(userId)
     const ideaId = seedIdea(userId, { title: 'Detail Test', description: 'Full detail description text.' })
+    seedAttachment(ideaId, 'detail.pdf')
     const { getIdeaDetailAction } = await import('@/actions/ideas')
     const result = await getIdeaDetailAction(ideaId)
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.data.title).toBe('Detail Test')
     expect(result.data.description).toBe('Full detail description text.')
+    expect(result.data.attachments).toHaveLength(1)
+    expect(result.data.attachments[0].originalName).toBe('detail.pdf')
   })
 
   it('returns not-found error for missing idea', async () => {

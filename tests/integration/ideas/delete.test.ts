@@ -4,7 +4,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { eq } from 'drizzle-orm'
 import * as schema from '@/lib/db/schema'
-import { ideas, users } from '@/lib/db/schema'
+import { ideaAttachments, ideas, users } from '@/lib/db/schema'
 import { hashPassword } from '@/lib/auth/password'
 
 let testDbFile: Database.Database
@@ -51,16 +51,24 @@ function seedIdea(submitterId: number) {
       description: 'This idea will be deleted.',
       category: 'workplace_culture',
       submitterId,
-      attachmentName: null,
-      attachmentSize: null,
-      attachmentMimeType: null,
-      attachmentContent: null,
       createdAt: now,
       updatedAt: now,
     })
     .returning({ id: ideas.id })
     .all()
   return result[0].id
+}
+
+function seedAttachment(ideaId: number) {
+  testDb.insert(ideaAttachments).values({
+    ideaId,
+    originalName: 'to-delete.pdf',
+    mimeType: 'application/pdf',
+    sizeBytes: 4,
+    previewEligible: true,
+    content: Buffer.from([37, 80, 68, 70]),
+    createdAt: Date.now(),
+  }).run()
 }
 
 function mockAuth(userId: number, role: 'submitter' | 'admin' = 'submitter') {
@@ -74,6 +82,7 @@ describe('deleteIdeaAction', () => {
   it('owner can delete their own idea', async () => {
     const userId = await seedUser()
     const ideaId = seedIdea(userId)
+    seedAttachment(ideaId)
     mockAuth(userId)
 
     const { deleteIdeaAction } = await import('@/actions/ideas')
@@ -81,7 +90,9 @@ describe('deleteIdeaAction', () => {
     expect(result.ok).toBe(true)
 
     const remaining = testDb.select().from(ideas).where(eq(ideas.id, ideaId)).all()
+    const remainingAttachments = testDb.select().from(ideaAttachments).where(eq(ideaAttachments.ideaId, ideaId)).all()
     expect(remaining).toHaveLength(0)
+    expect(remainingAttachments).toHaveLength(0)
   })
 
   it('admin can delete any idea', async () => {

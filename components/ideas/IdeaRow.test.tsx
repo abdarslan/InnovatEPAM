@@ -31,12 +31,14 @@ const baseIdea: IdeaListItem = {
   submitterId: 42,
   createdAt: new Date('2026-05-01').getTime(),
   updatedAt: new Date('2026-05-01').getTime(),
+  attachmentCount: 0,
   hasAttachment: false,
 }
 
 const baseDetail: IdeaDetail = {
   ...baseIdea,
   description: 'This is the full description of the test idea.',
+  attachments: [],
   attachmentName: null,
   attachmentSize: null,
   attachmentMimeType: null,
@@ -74,10 +76,18 @@ describe('IdeaRow', () => {
 
   it('shows download link when hasAttachment is true', async () => {
     const user = userEvent.setup()
-    const ideaWithFile: IdeaListItem = { ...baseIdea, hasAttachment: true }
+    const ideaWithFile: IdeaListItem = { ...baseIdea, hasAttachment: true, attachmentCount: 1 }
     const detailWithFile: IdeaDetail = {
       ...baseDetail,
       hasAttachment: true,
+      attachmentCount: 1,
+      attachments: [{
+        id: 9,
+        originalName: 'report.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 102400,
+        previewEligible: true,
+      }],
       attachmentName: 'report.pdf',
       attachmentSize: 102400,
       attachmentMimeType: 'application/pdf',
@@ -86,7 +96,8 @@ describe('IdeaRow', () => {
     render(<IdeaRow idea={ideaWithFile} currentUserId={42} currentUserRole="submitter" />)
     await user.click(screen.getByRole('button'))
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: /report\.pdf/i })).toBeInTheDocument()
+      expect(screen.getByText('report.pdf')).toBeInTheDocument()
     })
+    expect(screen.getByRole('link', { name: /download/i })).toHaveAttribute('href', '/api/ideas/1/attachments/9?download=1')
   })
 })
