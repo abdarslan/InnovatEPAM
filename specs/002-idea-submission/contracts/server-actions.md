@@ -1,36 +1,42 @@
-# Contracts: Server Actions & API Routes
+# Contracts: Server Actions & API Routes (Multi-attachment)
 
 **Feature**: `002-idea-submission`
 **Date**: 2026-05-14
-**Files**: `actions/ideas.ts`, `app/api/ideas/[id]/attachment/route.ts`
+**Files**: `actions/ideas.ts`, `app/api/ideas/[id]/attachments/[attachmentId]/route.ts`
 
-All Server Actions return a discriminated `ActionResult` union. They **MUST NOT throw** — all errors are caught and returned as `{ ok: false, error: string }`.
+All Server Actions return a discriminated `ActionResult` union and must surface controlled error strings.
 
 ---
 
 ## Shared Types
 
 ```typescript
-// actions/ideas.ts
 type ActionResult<T = void> =
-  | { ok: true;  data: T }
+  | { ok: true; data: T }
   | { ok: false; error: string }
 
+type IdeaAttachmentMeta = {
+  id: number
+  originalName: string
+  mimeType: string
+  sizeBytes: number
+  previewEligible: boolean
+}
+
 type IdeaListItem = {
-  id:           number
-  title:        string
-  category:     IdeaCategory
+  id: number
+  title: string
+  category: IdeaCategory
   submitterName: string
-  createdAt:    number
-  updatedAt:    number
-  hasAttachment: boolean
+  submitterId: number
+  createdAt: number
+  updatedAt: number
+  attachmentCount: number
 }
 
 type IdeaDetail = IdeaListItem & {
-  description:        string
-  attachmentName:     string | null
-  attachmentSize:     number | null
-  attachmentMimeType: string | null
+  description: string
+  attachments: IdeaAttachmentMeta[]
 }
 ```
 
@@ -38,164 +44,160 @@ type IdeaDetail = IdeaListItem & {
 
 ## `getIdeasAction`
 
-Returns all submitted ideas, newest first. No attachment content is included.
-
 ```typescript
 export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>>
 ```
 
-**Auth**: Requires authenticated session (`requireAuth()`). Returns `{ ok: false, error: 'UNAUTHENTICATED' }` if not logged in.
+**Auth**: Required.
 
-**Success response**: `{ ok: true, data: IdeaListItem[] }` (empty array when no ideas exist)
+**Success**: Returns ideas newest first with attachment count metadata.
 
 **Failure cases**:
 
 | Condition | `error` value |
 |---|---|
 | Not authenticated | `"You must be logged in to view ideas."` |
-| DB error | `"Failed to load ideas. Please try again."` |
+| Query error | `"Failed to load ideas. Please try again."` |
 
 ---
 
 ## `getIdeaDetailAction`
 
-Returns full idea details (including description) for a single idea. No attachment content.
-
 ```typescript
-export async function getIdeaDetailAction(
-  id: number
-): Promise<ActionResult<IdeaDetail>>
+export async function getIdeaDetailAction(id: number): Promise<ActionResult<IdeaDetail>>
 ```
 
-**Auth**: Requires authenticated session.
+**Auth**: Required.
 
-**Success response**: `{ ok: true, data: IdeaDetail }`
+**Success**: Returns full idea description and attachment metadata array (no binary content).
 
 **Failure cases**:
 
 | Condition | `error` value |
 |---|---|
 | Not authenticated | `"You must be logged in to view ideas."` |
-| Idea not found | `"Idea not found."` |
-| DB error | `"Failed to load idea. Please try again."` |
+| Not found | `"Idea not found."` |
+| Query error | `"Failed to load idea. Please try again."` |
 
 ---
 
 ## `submitIdeaAction`
 
-Creates a new idea. Accepts a `FormData` object (required for file upload). Saves idea + optional attachment atomically in a single DB transaction.
-
 ```typescript
-export async function submitIdeaAction(
-  formData: FormData
-): Promise<ActionResult<{ id: number }>>
+export async function submitIdeaAction(formData: FormData): Promise<ActionResult<{ id: number }>>
 ```
 
-**Auth**: Requires authenticated session.
+**Auth**: Required.
 
 **FormData fields**:
 
-| Field | Type | Validation |
-|-------|------|------------|
-| `title` | `string` | Required; 3–255 chars after trim |
-| `description` | `string` | Required; 10–5000 chars after trim |
-| `category` | `string` | Required; one of `IDEA_CATEGORIES` |
-| `attachment` | `File \| null` | Optional; ≤ 5 MB; MIME: `application/pdf`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `image/png`, `image/jpeg` |
+| Field | Type | Rules |
+|---|---|---|
+| `title` | `string` | Required, 3-255 |
+| `description` | `string` | Required, 10-5000 |
+| `category` | `string` | Required enum |
+| `attachments` | `File[]` (repeated key) | Optional, 0-5 files, each <= 10 MB, total <= 25 MB, MIME allowlist |
 
-**Success response**: `{ ok: true, data: { id: number } }`
+**Success**: `{ ok: true, data: { id } }`
 
 **Failure cases**:
 
 | Condition | `error` value |
 |---|---|
 | Not authenticated | `"You must be logged in to submit an idea."` |
-| Validation failure | First Zod error message (e.g., `"Title must be at least 3 characters."`) |
-| File too large | `"Attachment must be 5 MB or smaller."` |
-| Disallowed file type | `"Only PDF, DOCX, PNG, and JPG files are allowed."` |
-| DB / save error | `"Submission failed. Please try again."` |
+| Validation failure | First validation message |
+| Transaction failure | `"Submission failed. Please try again."` |
 
 ---
 
 ## `updateIdeaAction`
 
-Updates an existing idea. Only the submitter of the idea may call this action.
-
 ```typescript
-export async function updateIdeaAction(
-  id: number,
-  formData: FormData
-): Promise<ActionResult<void>>
+export async function updateIdeaAction(id: number, formData: FormData): Promise<ActionResult<void>>
 ```
 
-**Auth**: Requires authenticated session. Verifies `session.userId === idea.submitterId`.
+**Auth**: Required; owner only.
 
-**FormData fields**: Same as `submitIdeaAction`.
+**FormData fields**:
 
-**Success response**: `{ ok: true, data: undefined }`
+| Field | Type | Rules |
+|---|---|---|
+| `title` | `string` | Required |
+| `description` | `string` | Required |
+| `category` | `string` | Required |
+| `attachments` | `File[]` (repeated key) | Optional new uploads, subject to limits |
+| `removeAttachmentIds` | `string` (JSON array or repeated key) | Optional attachment IDs owner wants removed |
+
+**Behavior**:
+- Existing attachments remain unless explicitly removed.
+- New attachments are appended unless limits would be exceeded.
 
 **Failure cases**:
 
 | Condition | `error` value |
 |---|---|
 | Not authenticated | `"You must be logged in to edit an idea."` |
-| Idea not found | `"Idea not found."` |
-| Not the submitter | `"You are not authorised to edit this idea."` |
-| Validation failure | First Zod error message |
-| DB / save error | `"Update failed. Please try again."` |
+| Not found | `"Idea not found."` |
+| Not owner | `"You are not authorised to edit this idea."` |
+| Validation failure | First validation message |
+| Transaction failure | `"Update failed. Please try again."` |
 
 ---
 
 ## `deleteIdeaAction`
 
-Permanently deletes an idea. The submitter may delete their own idea; admin-role users may delete any idea.
-
 ```typescript
-export async function deleteIdeaAction(
-  id: number
-): Promise<ActionResult<void>>
+export async function deleteIdeaAction(id: number): Promise<ActionResult<void>>
 ```
 
-**Auth**: Requires authenticated session. Permits if `session.userId === idea.submitterId` OR `session.role === 'admin'`.
+**Auth**: Required; owner or admin.
 
-**Success response**: `{ ok: true, data: undefined }`
+**Behavior**: Hard delete idea and related attachments in one operation.
 
 **Failure cases**:
 
 | Condition | `error` value |
 |---|---|
 | Not authenticated | `"You must be logged in to delete an idea."` |
-| Idea not found | `"Idea not found."` |
-| Not submitter or admin | `"You are not authorised to delete this idea."` |
-| DB error | `"Delete failed. Please try again."` |
+| Not found | `"Idea not found."` |
+| Not authorised | `"You are not authorised to delete this idea."` |
+| Delete failure | `"Delete failed. Please try again."` |
 
 ---
 
-## API Route: `GET /api/ideas/[id]/attachment`
+## API Route: `GET /api/ideas/[id]/attachments/[attachmentId]`
 
-Serves the raw file content for an idea's attachment. Protected — requires an active session cookie.
-
-**File**: `app/api/ideas/[id]/attachment/route.ts`
+Returns attachment binary for preview/download, auth-protected.
 
 **Method**: `GET`
 
-**Auth**: Reads the session cookie via `requireAuth()`. Returns `401` if not authenticated.
+**Auth**: Required session.
 
-**Parameters**:
+**Params**:
 
-| Source | Name | Type | Description |
-|--------|------|------|-------------|
-| Path | `id` | `string` | Idea ID (parsed as integer) |
+| Source | Name | Type |
+|---|---|---|
+| Path | `id` | idea id |
+| Path | `attachmentId` | attachment id |
+| Query | `download` | `"1"` to force download |
 
-**Success response**: Binary `Response` with headers:
-- `Content-Type: <stored MIME type>`
-- `Content-Disposition: attachment; filename="<stored filename>"`
-- `Content-Length: <byte length>`
+**Response behavior**:
+- `Content-Type`: stored MIME type
+- `Content-Disposition`:
+  - `inline` when preview-eligible and `download` is not set
+  - `attachment` when `download=1` or preview not eligible
 
 **Error responses**:
 
-| Condition | HTTP Status | Body |
-|-----------|-------------|------|
-| Not authenticated | `401` | `Unauthorized` |
-| Invalid `id` param | `400` | `Bad Request` |
-| Idea not found or no attachment | `404` | `Not Found` |
-| DB error | `500` | `Internal Server Error` |
+| Condition | Status | Body |
+|---|---|---|
+| Unauthenticated | `401` | `Unauthorized` |
+| Invalid IDs | `400` | `Bad Request` |
+| Not found / mismatched relation | `404` | `Not Found` |
+| Server error | `500` | `Internal Server Error` |
+
+---
+
+## Backward Compatibility Note
+
+Existing legacy route `GET /api/ideas/[id]/attachment` may be retained temporarily as a compatibility shim for single-attachment rows during migration, then removed once all callers use attachment-id routing.
