@@ -15,6 +15,13 @@
       "when": 1778742444996,
       "tag": "0001_special_joshua_kane",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1778774828292,
+      "tag": "0002_bright_hex",
+      "breakpoints": true
     }
   ]
 }
