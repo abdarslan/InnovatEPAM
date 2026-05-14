@@ -1,7 +1,7 @@
 import { type NextRequest } from 'next/server'
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { db } from '@/lib/db'
-import { ideas } from '@/lib/db/schema'
+import { ideaAttachments } from '@/lib/db/schema'
 import { requireAuth } from '@/lib/auth/session'
 
 export async function GET(
@@ -25,24 +25,26 @@ export async function GET(
   // Fetch attachment
   const rows = await db
     .select({
-      attachmentContent: ideas.attachmentContent,
-      attachmentMimeType: ideas.attachmentMimeType,
-      attachmentName: ideas.attachmentName,
-      attachmentSize: ideas.attachmentSize,
+      content: ideaAttachments.content,
+      mimeType: ideaAttachments.mimeType,
+      originalName: ideaAttachments.originalName,
+      sizeBytes: ideaAttachments.sizeBytes,
     })
-    .from(ideas)
-    .where(eq(ideas.id, id))
+    .from(ideaAttachments)
+    .where(eq(ideaAttachments.ideaId, id))
+    .orderBy(asc(ideaAttachments.createdAt))
+    .limit(1)
     .all()
 
-  if (rows.length === 0 || rows[0].attachmentContent === null) {
+  if (rows.length === 0) {
     return new Response('Not Found', { status: 404 })
   }
 
-  const { attachmentContent, attachmentMimeType, attachmentName, attachmentSize } = rows[0]
+  const { content, mimeType, originalName, sizeBytes } = rows[0]
 
-  const buffer = Buffer.isBuffer(attachmentContent)
-    ? attachmentContent
-    : Buffer.from(attachmentContent as Uint8Array)
+  const buffer = Buffer.isBuffer(content)
+    ? content
+    : Buffer.from(content as Uint8Array)
 
   // Slice to get an ArrayBuffer (BodyInit-compatible across all lib targets)
   const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
@@ -50,9 +52,9 @@ export async function GET(
   return new Response(arrayBuffer as ArrayBuffer, {
     status: 200,
     headers: {
-      'Content-Type': attachmentMimeType ?? 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${attachmentName}"`,
-      'Content-Length': String(attachmentSize ?? buffer.byteLength),
+      'Content-Type': mimeType,
+      'Content-Disposition': `attachment; filename="${originalName}"`,
+      'Content-Length': String(sizeBytes),
     },
   })
 }
