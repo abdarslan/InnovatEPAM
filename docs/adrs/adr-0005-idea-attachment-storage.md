@@ -1,6 +1,6 @@
 # ADR-0005: Idea Attachment Storage Strategy
 
-**Status**: Accepted
+**Status**: Superseded by adr-0008-idea-attachments-normalization.md
 **Date**: 2026-05-14
 **Feature**: `002-idea-submission`
 **Deciders**: Speckit plan phase
