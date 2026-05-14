@@ -6,7 +6,7 @@
 
 ## Summary
 
-Implement a complete email/password authentication and user management system for InnovatEPAM Portal. Users self-register with `@epam.com` addresses and receive the `submitter` role; a seed script provisions `admin` accounts. Sessions are cookie-based with an 8-hour sliding window (iron-session). Role-based middleware protects all routes and redirects violations to `/access-denied`. Admins can deactivate user accounts via a Server Action. Stack: Next.js 15 App Router · Drizzle ORM + better-sqlite3 · iron-session · bcryptjs · shadcn/ui · Tailwind CSS v4 `@theme` · date-fns.
+Implement a complete email/password authentication and user management system for InnovatEPAM Portal. Users self-register with `@epam.com` addresses and receive the `submitter` role; a seed script provisions `admin` accounts. Sessions are cookie-based with an 8-hour sliding window (iron-session); expired sessions redirect to login with the original URL preserved and a session-expired message shown. Role-based middleware protects all routes and redirects violations to `/access-denied` (title: `Access denied`; message: `You do not have permission to access this page.`). Account lockout after 5 failed logins shows a human-readable remaining-time message formatted with date-fns. Admins can deactivate user accounts via a Server Action with visible confirmation. Stack: Next.js 15 App Router · Drizzle ORM + better-sqlite3 · iron-session · bcryptjs · shadcn/ui · Tailwind CSS v4 `@theme` · date-fns.
 
 ## Technical Context
 
@@ -36,7 +36,7 @@ Implement a complete email/password authentication and user management system fo
 - [x] **II. Simple UI/UX** — Tailwind v4 `@theme` utility classes only; shadcn/ui components for all form primitives; mobile-first layouts across all breakpoints.
 - [x] **III. Minimal Dependencies** — Every dependency justified (see research.md R01–R05); no dependency duplicates a native Next.js capability.
 - [x] **IV. Accessibility** — shadcn/ui form components include ARIA labels; error messages associated with inputs via `aria-describedby`; focus managed after submission; keyboard-navigable nav.
-- [x] **V. Error Handling** — All Server Actions return typed `ActionResult` unions (never throw); `error.tsx` and `not-found.tsx` present at all route segments that fetch data; loading states via React Suspense.
+- [x] **V. Error Handling** — All Server Actions return typed `ActionResult` unions (never throw); `error.tsx` and `not-found.tsx` present at all route segments that fetch data; loading states via React Suspense. All auth screens (registration, login, access-denied, deactivated-account) MUST render loading and error states; no blank or empty auth screen is permitted.
 - [x] **VI. ADRs** — Four ADRs created before tasks.md: `adr-0001` (SQLite/Drizzle), `adr-0002` (iron-session), `adr-0003` (Tailwind v4 @theme), `adr-0004` (bcryptjs).
 - [x] **VII. TypeScript Strict Mode** — `"strict": true` in `tsconfig.json`; all entities fully typed via Drizzle inference; `===` throughout; nullish coalescing for optional fields; no `any`.
 - [x] **Testing** — Vitest + RTL for unit/component tests; Playwright for E2E (registration, login, role-enforcement flows); integration tests against real SQLite test DB; CI gates: `type-check`, `lint`, `test`, `playwright test`.

@@ -86,10 +86,10 @@
 
 ### Implementation for User Story 2
 
-- [ ] T034 [US2] Implement loginAction credential checks, lockout, inactive-user messaging, and role return in actions/auth.ts
+- [ ] T034 [US2] Implement loginAction credential checks, lockout with human-readable date-fns remaining-time message, inactive-user messaging, and role return in actions/auth.ts
 - [ ] T035 [US2] Implement logoutAction session destroy behavior in actions/auth.ts
-- [ ] T036 [US2] Build login form UI and server action wiring in components/auth/LoginForm.tsx
-- [ ] T037 [US2] Create login route page in app/(auth)/login/page.tsx
+- [ ] T036 [US2] Build login form UI with react-hook-form + zod, server action wiring, and pending-state submit-button disable in components/auth/LoginForm.tsx
+- [ ] T037 [US2] Create login route page with session-expired message when ?reason=session_expired is present in app/(auth)/login/page.tsx
 - [ ] T038 [US2] Add reusable logout button tied to logoutAction in components/auth/LogoutButton.tsx
 - [ ] T039 [US2] Render logout and session-aware navigation in app/(protected)/layout.tsx
 
@@ -110,10 +110,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T042 [US3] Extend middleware role guards and returnUrl validation for /admin routes in middleware.ts
+- [ ] T042 [US3] Extend middleware role guards, returnUrl validation for /admin routes, and append ?reason=session_expired on session-expiry redirects in middleware.ts
 - [ ] T043 [US3] Create admin dashboard route in app/(protected)/admin/dashboard/page.tsx
-- [ ] T044 [US3] Create access-denied route with clear explanation in app/(protected)/access-denied/page.tsx
-- [ ] T045 [US3] Implement role-based nav visibility in app/(protected)/layout.tsx
+- [ ] T044 [US3] Create access-denied route with title `Access denied`, message `You do not have permission to access this page.`, and a back-to-dashboard button in app/(protected)/access-denied/page.tsx
+- [ ] T045 [US3] Implement role-based nav: submitter sees Dashboard + Logout; admin sees Dashboard + Users + Logout in app/(protected)/layout.tsx
 
 **Checkpoint**: US3 is independently testable with seeded admin and submitter accounts.
 

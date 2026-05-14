@@ -73,7 +73,7 @@ export async function loginAction(
 
 | Condition | `error` value |
 |---|---|
-| Account locked (`locked_until > Date.now()`) | `"Your account is locked. Please try again after [formatted time]."` |
+| Account locked (`locked_until > Date.now()`) | `"Your account is locked. Please try again after [date-fns formatted time, e.g. 'in 14 minutes']."` |
 | Account inactive | `"Your account has been deactivated. Please contact your administrator."` |
 | Invalid credentials (email not found or wrong password) | `"Invalid email or password."` |
 | Unexpected DB error | `"Login failed. Please try again."` |
@@ -137,3 +137,7 @@ export async function deactivateUserAction(
 | All protected routes | Yes | — | Inactive session / expired cookie → `/login` |
 
 **Return URL**: The `returnUrl` query parameter is URL-encoded. After login, the Server Action reads it and redirects to the preserved destination if it is a relative path (validated to prevent open-redirect).
+
+**Session-expiry message**: When the middleware redirects to `/login` due to an expired session, it appends `?reason=session_expired`. The login page MUST display a visible info message when this parameter is present.
+
+**Login form pending state**: The login form MUST disable the submit button and show a loading indicator while a `loginAction` call is in-flight. Additional submissions MUST be ignored while the request is pending.
