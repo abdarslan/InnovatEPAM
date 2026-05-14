@@ -131,7 +131,6 @@ describe('IdeaForm', () => {
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(1))
   })
 
-<<<<<<< HEAD
   it('shows attachment validation feedback when too many files are selected', async () => {
     const user = userEvent.setup()
     render(<IdeaForm action={mockSuccessAction} />)
@@ -219,5 +218,84 @@ describe('IdeaForm', () => {
     const describedBy = dynamicInput.getAttribute('aria-describedby') ?? ''
     expect(describedBy).toContain('dynamic_venue_name-help')
     expect(describedBy).toContain('dynamic_venue_name-error')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// T013: Save Draft button — relaxed validation and state (US1)
+// ---------------------------------------------------------------------------
+describe('IdeaForm — Save Draft', () => {
+  const mockDraftSuccessAction = vi.fn(async (_formData: FormData) => ({
+    ok: true as const,
+    data: { draftId: 42 },
+  }))
+  const mockDraftFailureAction = vi.fn(async (_formData: FormData) => ({
+    ok: false as const,
+    error: 'Failed to save draft.',
+  }))
+
+  beforeEach(() => {
+    mockDraftSuccessAction.mockClear()
+    mockDraftFailureAction.mockClear()
+  })
+
+  it('renders Save Draft button when draftAction prop is provided', () => {
+    render(<IdeaForm action={vi.fn()} draftAction={mockDraftSuccessAction} />)
+    expect(screen.getByRole('button', { name: /save draft/i })).toBeInTheDocument()
+  })
+
+  it('does not render Save Draft button when draftAction prop is absent', () => {
+    render(<IdeaForm action={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /save draft/i })).not.toBeInTheDocument()
+  })
+
+  it('saves draft with empty form without triggering required-field validation', async () => {
+    const user = userEvent.setup()
+    render(<IdeaForm action={vi.fn()} draftAction={mockDraftSuccessAction} />)
+    await user.click(screen.getByRole('button', { name: /save draft/i }))
+    await waitFor(() => expect(mockDraftSuccessAction).toHaveBeenCalledTimes(1))
+    // No validation errors shown
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('saves draft with partial content and calls draftAction with formData', async () => {
+    const user = userEvent.setup()
+    render(<IdeaForm action={vi.fn()} draftAction={mockDraftSuccessAction} />)
+    await user.type(screen.getByLabelText(/title/i), 'Partial Idea')
+    await user.click(screen.getByRole('button', { name: /save draft/i }))
+    await waitFor(() => {
+      const formData: FormData = mockDraftSuccessAction.mock.calls[0][0]
+      expect(formData.get('title')).toBe('Partial Idea')
+    })
+  })
+
+  it('passes draftId on subsequent save draft calls', async () => {
+    const user = userEvent.setup()
+    render(<IdeaForm action={vi.fn()} draftAction={mockDraftSuccessAction} />)
+
+    // First save — receives draftId 42 from action
+    await user.click(screen.getByRole('button', { name: /save draft/i }))
+    await waitFor(() => expect(mockDraftSuccessAction).toHaveBeenCalledTimes(1))
+
+    // Second save — should include the previously received draftId
+    await user.click(screen.getByRole('button', { name: /save draft/i }))
+    await waitFor(() => {
+      const formData: FormData = mockDraftSuccessAction.mock.calls[1][0]
+      expect(formData.get('draftId')).toBe('42')
+    })
+  })
+
+  it('shows error feedback when draft save fails', async () => {
+    const user = userEvent.setup()
+    render(<IdeaForm action={vi.fn()} draftAction={mockDraftFailureAction} />)
+    await user.click(screen.getByRole('button', { name: /save draft/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/failed to save draft/i)
+  })
+
+  it('shows success feedback after draft is saved', async () => {
+    const user = userEvent.setup()
+    render(<IdeaForm action={vi.fn()} draftAction={mockDraftSuccessAction} />)
+    await user.click(screen.getByRole('button', { name: /save draft/i }))
+    expect(await screen.findByText(/draft saved/i)).toBeInTheDocument()
   })
 })

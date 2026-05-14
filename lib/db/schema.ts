@@ -171,3 +171,66 @@ export const ideaAttachments = sqliteTable(
 
 export type IdeaAttachment = typeof ideaAttachments.$inferSelect
 export type NewIdeaAttachment = typeof ideaAttachments.$inferInsert
+
+// ---------------------------------------------------------------------------
+// Idea Drafts
+// ---------------------------------------------------------------------------
+
+export const ideaDrafts = sqliteTable(
+  'idea_drafts',
+  {
+    id:          integer('id').primaryKey({ autoIncrement: true }),
+    submitterId: integer('submitter_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    title:       text('title'),
+    description: text('description'),
+    category:    text('category', { enum: IDEA_CATEGORIES }),
+    createdAt:   integer('created_at').notNull(),
+    updatedAt:   integer('updated_at').notNull(),
+  },
+  (table) => ({
+    submitterIdx: index('idea_drafts_submitter_id_idx').on(table.submitterId),
+  }),
+)
+
+export type IdeaDraft    = typeof ideaDrafts.$inferSelect
+export type NewIdeaDraft = typeof ideaDrafts.$inferInsert
+
+export const ideaDraftAttachments = sqliteTable(
+  'idea_draft_attachments',
+  {
+    id:              integer('id').primaryKey({ autoIncrement: true }),
+    draftId:         integer('draft_id').notNull().references(() => ideaDrafts.id, { onDelete: 'cascade' }),
+    originalName:    text('original_name').notNull(),
+    mimeType:        text('mime_type').notNull(),
+    sizeBytes:       integer('size_bytes').notNull(),
+    previewEligible: integer('preview_eligible', { mode: 'boolean' }).notNull(),
+    content:         blob('content', { mode: 'buffer' }).notNull(),
+    createdAt:       integer('created_at').notNull(),
+  },
+  (table) => ({
+    draftIdIdx: index('idea_draft_attachments_draft_id_idx').on(table.draftId),
+  }),
+)
+
+export type IdeaDraftAttachment    = typeof ideaDraftAttachments.$inferSelect
+export type NewIdeaDraftAttachment = typeof ideaDraftAttachments.$inferInsert
+
+export const ideaDraftFieldValues = sqliteTable(
+  'idea_draft_field_values',
+  {
+    id:        integer('id').primaryKey({ autoIncrement: true }),
+    draftId:   integer('draft_id').notNull().references(() => ideaDrafts.id, { onDelete: 'cascade' }),
+    fieldKey:  text('field_key').notNull(),
+    value:     text('value').notNull(),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => ({
+    draftFieldKeyUnique: uniqueIndex('idea_draft_field_values_draft_id_field_key_unique')
+      .on(table.draftId, table.fieldKey),
+    draftLookupIdx: index('idea_draft_field_values_draft_id_idx').on(table.draftId),
+  }),
+)
+
+export type IdeaDraftFieldValue    = typeof ideaDraftFieldValues.$inferSelect
+export type NewIdeaDraftFieldValue = typeof ideaDraftFieldValues.$inferInsert

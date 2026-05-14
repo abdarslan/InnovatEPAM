@@ -73,16 +73,18 @@ const ideaFieldsSchema = z.object({
 })
 
 export const submitIdeaSchema = ideaFieldsSchema.extend({
-  attachments: z.array(attachmentFileSchema).optional().default([]),
+  attachments: z.array(attachmentFileSchema).default([]),
 })
 
 export const updateIdeaSchema = ideaFieldsSchema.extend({
-  attachments: z.array(attachmentFileSchema).optional().default([]),
-  removeAttachmentIds: z.array(z.number().int().positive()).optional().default([]),
+  attachments: z.array(attachmentFileSchema).default([]),
+  removeAttachmentIds: z.array(z.number().int().positive()).default([]),
 })
 
-export type SubmitIdeaInput = z.infer<typeof submitIdeaSchema>
-export type UpdateIdeaInput = z.infer<typeof updateIdeaSchema>
+export type SubmitIdeaInput = z.output<typeof submitIdeaSchema>
+export type SubmitIdeaFormValues = z.input<typeof submitIdeaSchema>
+export type UpdateIdeaInput = z.output<typeof updateIdeaSchema>
+export type UpdateIdeaFormValues = z.input<typeof updateIdeaSchema>
 
 // ---------------------------------------------------------------------------
 // Evaluation workflow
@@ -175,3 +177,49 @@ export function collectDynamicFieldEntries(
 }
 
 export type UpsertCategoryFieldRuleInput = z.infer<typeof upsertCategoryFieldRuleSchema>
+
+// ---------------------------------------------------------------------------
+// Draft validation (all fields optional — no required constraints)
+// ---------------------------------------------------------------------------
+
+/** Relaxed schema for draft save. All fields nullable/optional. */
+export const saveDraftSchema = z.object({
+  draftId: z.coerce.number().int().positive().optional(),
+  title: z
+    .string()
+    .trim()
+    .max(255, { message: 'Title must be 255 characters or fewer.' })
+    .optional()
+    .nullable(),
+  description: z
+    .string()
+    .trim()
+    .max(5000, { message: 'Description must be 5000 characters or fewer.' })
+    .optional()
+    .nullable(),
+  category: z
+    .enum(IDEA_CATEGORIES, {
+      error: () => ({ message: 'Please select a valid category.' }),
+    })
+    .optional()
+    .nullable(),
+  attachments: z.array(attachmentFileSchema).optional().default([]),
+  removeAttachmentIds: z.array(z.coerce.number().int().positive()).optional().default([]),
+})
+
+export type SaveDraftInput = z.infer<typeof saveDraftSchema>
+
+/**
+ * Parse a FormData payload using `saveDraftSchema`.
+ * Returns a Zod SafeParseReturnType so callers can inspect `.error.issues`.
+ */
+export function parseDraftFormData(formData: FormData) {
+  return saveDraftSchema.safeParse({
+    draftId:     formData.get('draftId') ?? undefined,
+    title:       formData.get('title') ?? undefined,
+    description: formData.get('description') ?? undefined,
+    category:    formData.get('category') ?? undefined,
+    attachments: formData.getAll('attachments').filter((f): f is File => f instanceof File && f.size > 0),
+    removeAttachmentIds: formData.getAll('removeAttachmentIds').map(Number).filter(Boolean),
+  })
+}
