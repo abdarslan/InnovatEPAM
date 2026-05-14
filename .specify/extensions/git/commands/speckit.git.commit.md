@@ -17,6 +17,14 @@ This command is invoked as a hook after (or before) core commands. It:
 5. Uses the per-command `message` if configured, otherwise a default message
 6. If enabled and there are uncommitted changes, runs `git add .` + `git commit`
 
+## Commit Granularity Rules
+
+- During implementation workflows, each commit MUST represent one distinct, meaningfully complete
+  task from `tasks.md` (or a tightly coupled inseparable task cluster).
+- A single monolithic "implement everything" commit for a whole feature is FORBIDDEN.
+- If there are no meaningful completed-task changes, skip committing rather than creating a noisy
+  checkpoint commit.
+
 ## Execution
 
 Determine the event name from the hook that triggered this command, then run the script:

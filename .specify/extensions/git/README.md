@@ -2,6 +2,15 @@
 
 Git repository initialization, feature branch creation, numbering (sequential/timestamp), validation, remote detection, and auto-commit for Spec Kit.
 
+## Workflow Guardrails
+
+- Implementation commits must be task-scoped and meaningfully complete; monolithic high-level
+  feature commits are not allowed.
+- Completion of all tasks for a spec must trigger PR creation before merge.
+- Merge to `main` should occur via GitHub MCP tooling after explicit final user approval.
+- For critical dependency/API/version decisions tied to the implementation workflow, verify the
+  latest documentation and versions via Context7 MCP.
+
 ## Overview
 
 This extension provides Git operations as an optional, self-contained module. It manages:

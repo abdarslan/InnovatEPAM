@@ -1,15 +1,20 @@
 <!--
   SYNC IMPACT REPORT
-  Version change: 1.2.0 → 1.3.0
-  Modified principles: None
+  Version change: 1.3.0 -> 1.4.0
+  Modified principles:
+    - III. Minimal Dependencies (expanded with mandatory Context7 verification for critical dependency/API changes)
+    - Version Control and Task-Based Auto-Commit Workflow -> Version Control, Task-Scoped Commits, and PR Merge Gates
   Added sections:
-    - VII. TypeScript Strict Mode (new Core Principle) [v1.2.0]
-    - Testing Principles (new top-level section with 8 sub-principles) [v1.2.0]
-    - Governance: Version Control and Task-Based Auto-Commit Workflow [v1.3.0]
-  Removed sections: N/A
+    - 4. Feature Completion PR + Merge Gate
+    - 5. Critical Version/Documentation Freshness Gate
+  Removed sections:
+    - None
   Templates updated:
-    - .specify/templates/plan-template.md ✅ (Constitution Check items added for TypeScript Strict Mode and Testing)
-    - .specify/templates/tasks-template.md ✅ (Testing setup tasks added to Phase 1)
+    - .specify/templates/plan-template.md ✅
+    - .specify/templates/spec-template.md ✅
+    - .specify/templates/tasks-template.md ✅
+    - .specify/extensions/git/commands/speckit.git.commit.md ✅
+    - .specify/extensions/git/README.md ✅
   Follow-up TODOs: None
 -->
 
@@ -45,6 +50,7 @@ Every UI component MUST be simple, responsive, and built with Tailwind CSS.
 ### III. Minimal Dependencies
 Every external dependency MUST be justified before adoption.
 - A new dependency MUST NOT be added if native platform APIs or already-present packages cover the need.
+- For critical or security-sensitive dependency/API adoption or upgrade decisions, maintainers MUST verify the latest stable version and authoritative documentation using Context7 MCP before implementation.
 - Transitive dependency trees MUST be kept shallow; audit with `npm audit` on every change.
 - Prefer battle-tested, actively maintained packages with small bundle footprints.
 - Dependencies MUST be pinned to exact versions in `package.json` lock files.
@@ -68,13 +74,13 @@ Every operation that can fail MUST have explicit, user-facing error handling.
 ### VI. Architecture Decision Records
 Every significant technical choice MUST be recorded before implementation begins.
 - During the `/speckit.plan` phase, any significant technical decision (e.g., introducing a new framework,
-  database, API pattern, or third-party service) MUST produce an `adr-XXXX-[something]-decision.md` file in `docs/adrs/`
+  database, API pattern, or third-party service) MUST produce an `adr-XXXX-topic-decision.md` file in `docs/adrs/`
   using the standard **MADR** (Markdown Architecture Decision Record) format.
 - The ADR MUST be created before `tasks.md` is generated — it is a gate on the `/speckit.tasks` command.
 - ADR filenames MUST include zero-padded four-digit sequential integers.
 - Each ADR MUST include at minimum: **Title**, **Status**, **Context**, **Decision**, **Consequences**.
 - ADRs are immutable once status is `Accepted`; superseding decisions MUST create a new ADR and
-  set the prior ADR's status to `Superseded by adr-XXXX-[something]-decision.md`.
+  set the prior ADR's status to `Superseded by adr-XXXX-topic-decision.md`.
 
 ### VII. TypeScript Strict Mode (NON-NEGOTIABLE)
 All TypeScript source MUST compile with `"strict": true` in `tsconfig.json`. No exceptions.
@@ -144,7 +150,7 @@ Non-negotiable rules:
 - Test files MUST use the `ComponentName.test.tsx` or `module.test.ts` pattern.
 - E2E test files MUST use the `journey-name.spec.ts` pattern.
 - Top-level suites MUST use `describe('ComponentName', ...)` or `describe('Feature Name', ...)`.
-- Individual test cases MUST use the `it('should [expected behavior] when [condition]', ...)` pattern.
+- Individual test cases MUST use the `it('should <expected behavior> when <condition>', ...)` pattern.
 
 ### 5. Test Anatomy
 Every test MUST be readable as a small proof of behavior.
@@ -213,11 +219,11 @@ This constitution supersedes all informal conventions and individual preferences
 - Complexity MUST be justified in PR description; unexplained complexity is grounds for rejection.
 - Ratified principles are binding from the moment they appear in this file at version ≥ 1.0.0.
 
-## Version Control and Task-Based Auto-Commit Workflow
+## Version Control, Task-Scoped Commits, and PR Merge Gates
 
 Every Speckit command boundary and every completed implementation task is a save point.
-Commits MUST be created automatically at these transitions so the repository always reflects
-a coherent, reviewable snapshot.
+Commits MUST be created at these transitions so the repository always reflects a coherent,
+reviewable snapshot.
 
 ### 1. Commit Triggers and Scope
 
@@ -245,19 +251,37 @@ To prevent git hooks from blocking documentation phases while still protecting t
 
 - **Strict Branching**: A feature branch (e.g., `feature/student-submission`) MUST be created
   before `/speckit.specify` runs. Committing directly to `main` is FORBIDDEN.
-- **Granular Implementation**: During the implementation phase, you MUST pause and commit after
-  completing each individual task on the generated task list. Do not write the entire feature in
-  one go.
+- **Task-Scoped Implementation Commits**: During implementation, each commit MUST represent one
+  distinct, meaningfully complete task from `tasks.md` (or a tightly coupled small cluster that is
+  inseparable in practice). A monolithic high-level "implement everything" commit is FORBIDDEN.
 - **Commit Naming**: Commit messages MUST follow conventional commit patterns and reference the
   phase or task:
-  - Planning: `docs(speckit): generate implementation plan for [feature]`
-  - Implementation: `feat([feature]): implement [specific task name from checklist]`
-  - Testing: `test([feature]): add Vitest coverage for [specific task]`
+  - Planning: `docs(speckit): generate implementation plan for feature-name`
+  - Implementation: `feat(feature-name): implement task T0NN short-task-title`
+  - Testing: `test(feature-name): add coverage for task T0NN`
 - **No Empty Commits**: If the working tree is clean at a trigger point, the auto-commit MUST be
   skipped silently.
 
-**Rationale**: Atomic, task-aligned commits ensure the Next.js build is never broken by a massive
-code dump. It makes every step independently reviewable, simplifies bisect debugging and ensures safe rollback points if a specific UI component or Server Action goes off the
-rails during implementation.
+### 4. Feature Completion PR + Merge Gate
 
-**Version**: 1.3.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-14
+- After ALL tasks for a spec are complete, a pull request MUST be created before merging to `main`.
+- The pull request MUST summarize completed task IDs, validation evidence (`type-check`, `lint`,
+  `test`, and relevant E2E/integration runs), and any ADR updates.
+- Merge to `main` MUST be executed through GitHub MCP tooling only after explicit final user
+  approval is requested and received in the current session.
+- If final approval is not granted, the branch MUST remain open and unmerged.
+
+### 5. Critical Version/Documentation Freshness Gate
+
+- When work depends on critical framework/library behavior, security posture, or breaking API
+  semantics, implementers MUST verify up-to-date versions/documentation via Context7 MCP before
+  finalizing implementation.
+- This gate applies to planning decisions, dependency upgrades, and high-risk implementation tasks.
+- If Context7 data is unavailable, implementation MAY proceed only with a clearly documented risk
+  note and a follow-up verification task.
+
+**Rationale**: Task-scoped commits, enforced PR gates, and explicit final approval before merge
+keep change history reviewable, reduce rollback risk, and prevent unverified large-scope
+implementations from landing directly on `main`.
+
+**Version**: 1.4.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-14

@@ -138,4 +138,6 @@ The following constraints are mandated by the project constitution and MUST NOT 
 - **Accessibility**: All non-text content MUST have text alternatives; text contrast ≥ 4.5:1 (WCAG AA).
 - **Error Handling**: Every async operation MUST have explicit error handling; error/loading/empty states are required.
 - **Dependencies**: No new dependency without documented justification aligned with Principle III.
+- **Critical Documentation**: For crucial dependency/framework/API decisions, latest versions and authoritative docs MUST be verified via Context7 MCP.
 - **Styling**: Tailwind utility classes only — no custom CSS without constitutional amendment.
+- **Delivery Governance**: Completion of all spec tasks MUST trigger PR creation; merge to `main` requires explicit final user approval and GitHub MCP merge execution.

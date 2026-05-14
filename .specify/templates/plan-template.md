@@ -43,12 +43,14 @@
 - [ ] **I. Clean Code** — Functions are single-purpose; no dead code; names are intention-revealing.
 - [ ] **II. Simple UI/UX** — Tailwind-only styling; shadcn/ui components used; mobile-first responsive layout.
 - [ ] **III. Minimal Dependencies** — No new dependency added without justification; `npm audit` passes clean.
+- [ ] **III.a Documentation Freshness** — For critical dependency/API choices, latest stable versions and docs are verified via Context7 MCP.
 - [ ] **IV. Accessibility** — All images/icons have text alternatives; contrast ≥ 4.5:1; keyboard-navigable.
 - [ ] **V. Error Handling** — All async paths have try/catch or error boundaries; error/loading/empty states designed.
 - [ ] **VI. ADRs** — Every significant technical choice made during this plan has a corresponding `docs/adrs/adr-XXXX.md` (MADR format) created before `tasks.md` is generated.
 - [ ] **VII. TypeScript Strict Mode** — `"strict": true` in `tsconfig.json`; no `any` without justification; `===` used throughout; nullish coalescing/optional chaining preferred.
 - [ ] **Testing** — Test tooling confirmed: Vitest + React Testing Library (unit/component), Playwright (E2E); `tests/integration/` and `tests/e2e/` directories planned; CI gates include `type-check`, `lint`, and all test suites.
 - [ ] **Stack** — Next.js App Router + React 18+ + Tailwind + shadcn/ui + TypeScript strict mode.
+- [ ] **Workflow Governance** — Implementation plan supports task-scoped commits and a post-task-completion PR-before-merge gate to `main` with explicit user approval.
 
 ## Project Structure
 

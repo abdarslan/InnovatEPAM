@@ -161,6 +161,8 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
+- [ ] TXXX Create PR summarizing completed task IDs and validation evidence; request final user approval before merge
+- [ ] TXXX Merge approved PR to `main` via GitHub MCP tooling
 
 ---
 
@@ -251,6 +253,8 @@ With multiple developers:
 - [Story] label maps task to specific user story for traceability
 - Each user story should be independently completable and testable
 - Verify tests fail before implementing
-- Commit after each task or logical group
+- Commit after each distinct, meaningfully complete task (or tightly coupled inseparable task cluster)
+- Do not produce a single monolithic high-level implementation commit
+- When all spec tasks are complete, open a PR and merge to `main` only after explicit final user approval
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
