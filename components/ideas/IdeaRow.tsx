@@ -109,11 +109,11 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                 {CATEGORY_LABELS[idea.category]}
               </span>
               <span>{idea.submitterName}</span>
-              <span>|</span>
+              <span>{'\u00B7'}</span>
               <span>{formatDate(idea.createdAt)}</span>
               {idea.hasAttachment && (
                 <>
-                  <span>|</span>
+                  <span>{'\u00B7'}</span>
                   <span className="text-[--color-info]">{attachmentLabel(idea.attachmentCount)}</span>
                 </>
               )}
@@ -122,7 +122,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
           <div className="ml-3 flex items-center gap-2 shrink-0">
             <StatusBadge status={idea.status} />
             <span className="text-[--color-text-muted]" aria-hidden="true">
-              {isOpen ? 'v' : '>'}
+              {isOpen ? '\u25BE' : '\u25B8'}
             </span>
           </div>
         </CollapsibleTrigger>

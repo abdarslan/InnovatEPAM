@@ -605,7 +605,7 @@ export async function deleteIdeaAction(id: number): Promise<ActionResult<void>> 
 }
 
 // ---------------------------------------------------------------------------
-// startReviewAction ΓÇö admin only, Submitted ΓåÆ UnderReview
+// startReviewAction - admin only, Submitted -> UnderReview
 // ---------------------------------------------------------------------------
 
 export async function startReviewAction(ideaId: number): Promise<ActionResult<void>> {
@@ -648,7 +648,7 @@ export async function startReviewAction(ideaId: number): Promise<ActionResult<vo
 }
 
 // ---------------------------------------------------------------------------
-// evaluateIdeaAction ΓÇö admin only, UnderReview ΓåÆ Accepted | Rejected
+// evaluateIdeaAction - admin only, UnderReview -> Accepted | Rejected
 // ---------------------------------------------------------------------------
 
 export async function evaluateIdeaAction(
@@ -704,7 +704,7 @@ export async function evaluateIdeaAction(
 }
 
 // ---------------------------------------------------------------------------
-// getAdminIdeasAction ΓÇö admin only, all ideas with reviewer + evaluation info
+// getAdminIdeasAction - admin only, all ideas with reviewer + evaluation info
 // ---------------------------------------------------------------------------
 
 export async function getAdminIdeasAction(
