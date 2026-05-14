@@ -6,6 +6,7 @@ import { getIdeaDetailAction } from '@/actions/ideas'
 import type { IdeaListItem, IdeaDetail } from '@/actions/ideas'
 import type { IdeaCategory } from '@/lib/db/schema'
 import Link from 'next/link'
+import { StatusBadge } from '@/components/ideas/StatusBadge'
 
 const CATEGORY_LABELS: Record<IdeaCategory, string> = {
   process_improvement: 'Process Improvement',
@@ -85,9 +86,12 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
               )}
             </div>
           </div>
-          <span className="ml-3 shrink-0 text-[--color-text-muted]" aria-hidden="true">
-            {isOpen ? '▲' : '▼'}
-          </span>
+          <div className="ml-3 flex items-center gap-2 shrink-0">
+            <StatusBadge status={idea.status} />
+            <span className="text-[--color-text-muted]" aria-hidden="true">
+              {isOpen ? '▲' : '▼'}
+            </span>
+          </div>
         </CollapsibleTrigger>
 
         {/* Expanded content */}
@@ -106,6 +110,20 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
             {detail && (
               <>
                 <p className="text-sm text-[--color-text] whitespace-pre-wrap">{detail.description}</p>
+
+                {detail.evaluation !== null && currentUserId === idea.submitterId && (
+                  <div className="rounded border border-border bg-muted/50 p-3 text-sm space-y-1">
+                    <p className="font-medium">
+                      Evaluation:{' '}
+                      <span className={detail.evaluation.status === 'accepted' ? 'text-green-700' : 'text-red-700'}>
+                        {detail.evaluation.status === 'accepted' ? 'Accepted' : 'Rejected'}
+                      </span>
+                    </p>
+                    {detail.evaluation.comment && (
+                      <p className="text-muted-foreground">{detail.evaluation.comment}</p>
+                    )}
+                  </div>
+                )}
 
                 {detail.attachmentName && (
                   <div>

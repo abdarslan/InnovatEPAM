@@ -27,6 +27,7 @@ const baseIdea: IdeaListItem = {
   id: 1,
   title: 'Test Idea Title',
   category: 'technology_innovation',
+  status: 'submitted',
   submitterName: 'Alice',
   submitterId: 42,
   createdAt: new Date('2026-05-01').getTime(),
@@ -40,6 +41,7 @@ const baseDetail: IdeaDetail = {
   attachmentName: null,
   attachmentSize: null,
   attachmentMimeType: null,
+  evaluation: null,
 }
 
 describe('IdeaRow', () => {
