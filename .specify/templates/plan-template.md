@@ -46,6 +46,8 @@
 - [ ] **IV. Accessibility** — All images/icons have text alternatives; contrast ≥ 4.5:1; keyboard-navigable.
 - [ ] **V. Error Handling** — All async paths have try/catch or error boundaries; error/loading/empty states designed.
 - [ ] **VI. ADRs** — Every significant technical choice made during this plan has a corresponding `docs/adrs/adr-XXXX.md` (MADR format) created before `tasks.md` is generated.
+- [ ] **VII. TypeScript Strict Mode** — `"strict": true` in `tsconfig.json`; no `any` without justification; `===` used throughout; nullish coalescing/optional chaining preferred.
+- [ ] **Testing** — Test tooling confirmed: Vitest + React Testing Library (unit/component), Playwright (E2E); `tests/integration/` and `tests/e2e/` directories planned; CI gates include `type-check`, `lint`, and all test suites.
 - [ ] **Stack** — Next.js App Router + React 18+ + Tailwind + shadcn/ui + TypeScript strict mode.
 
 ## Project Structure
