@@ -51,8 +51,9 @@ description: "Task list template for feature implementation"
 
 - [ ] T001 Create project structure per implementation plan
 - [ ] T002 Initialize [language] project with [framework] dependencies
-- [ ] T003 [P] Configure linting and formatting tools
+- [ ] T003 [P] Configure linting and formatting tools (`next lint`, `tsc --noEmit`, `npm run test`)
 - [ ] T004 [P] Create `docs/adrs/` directory and record ADRs for all significant technical decisions made during planning
+- [ ] T005 [P] Configure Vitest (or Jest) with React Testing Library for unit/component tests; create `tests/integration/` and `tests/e2e/` directories; add Playwright config for E2E
 
 ---
 
