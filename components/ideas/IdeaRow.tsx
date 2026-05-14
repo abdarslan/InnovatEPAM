@@ -6,6 +6,7 @@ import { getIdeaDetailAction } from '@/actions/ideas'
 import type { IdeaAttachmentMeta, IdeaListItem, IdeaDetail } from '@/actions/ideas'
 import type { IdeaCategory } from '@/lib/db/schema'
 import Link from 'next/link'
+import { StatusBadge } from '@/components/ideas/StatusBadge'
 
 const CATEGORY_LABELS: Record<IdeaCategory, string> = {
   process_improvement: 'Process Improvement',
@@ -13,6 +14,7 @@ const CATEGORY_LABELS: Record<IdeaCategory, string> = {
   customer_experience: 'Customer Experience',
   workplace_culture: 'Workplace Culture',
   cost_reduction: 'Cost Reduction',
+  event_plan: 'Event Plan',
 }
 
 type IdeaRowProps = {
@@ -36,29 +38,31 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function formatDynamicFieldLabel(fieldKey: string) {
+  return fieldKey
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 function renderAttachmentPreview(ideaId: number, attachment: IdeaAttachmentMeta) {
   const previewUrl = `/api/ideas/${ideaId}/attachments/${attachment.id}`
-
   if (!attachment.previewEligible) {
     return <p className="text-xs text-[--color-text-muted]">Preview not available for this file type.</p>
   }
-
   if (attachment.mimeType.startsWith('image/')) {
     return <img src={previewUrl} alt={attachment.originalName} className="max-h-40 rounded-md border border-[--color-border] object-cover" />
   }
-
   if (attachment.mimeType.startsWith('audio/')) {
     return <audio controls src={previewUrl} className="w-full" />
   }
-
   if (attachment.mimeType.startsWith('video/')) {
     return <video controls src={previewUrl} className="max-h-48 w-full rounded-md border border-[--color-border]" />
   }
-
   if (attachment.mimeType === 'application/pdf') {
     return <iframe src={previewUrl} title={attachment.originalName} className="h-48 w-full rounded-md border border-[--color-border]" />
   }
-
   return <p className="text-xs text-[--color-text-muted]">Preview not available for this file type.</p>
 }
 
@@ -105,19 +109,22 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                 {CATEGORY_LABELS[idea.category]}
               </span>
               <span>{idea.submitterName}</span>
-              <span>·</span>
+              <span>┬╖</span>
               <span>{formatDate(idea.createdAt)}</span>
-              {idea.attachmentCount > 0 && (
+              {idea.hasAttachment && (
                 <>
-                  <span>·</span>
+                  <span>┬╖</span>
                   <span className="text-[--color-info]">{attachmentLabel(idea.attachmentCount)}</span>
                 </>
               )}
             </div>
           </div>
-          <span className="ml-3 shrink-0 text-[--color-text-muted]" aria-hidden="true">
-            {isOpen ? '▲' : '▼'}
-          </span>
+          <div className="ml-3 flex items-center gap-2 shrink-0">
+            <StatusBadge status={idea.status} />
+            <span className="text-[--color-text-muted]" aria-hidden="true">
+              {isOpen ? 'Γû▓' : 'Γû╝'}
+            </span>
+          </div>
         </CollapsibleTrigger>
 
         {/* Expanded content */}
@@ -125,7 +132,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
           <div className="border-t border-[--color-border] px-4 py-4 space-y-4">
             {isLoading && (
               <p className="text-sm text-[--color-text-muted]" aria-live="polite">
-                Loading…
+                LoadingΓÇª
               </p>
             )}
             {loadError && (
@@ -137,39 +144,80 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
               <>
                 <p className="text-sm text-[--color-text] whitespace-pre-wrap">{detail.description}</p>
 
-                {detail.attachments.length === 0 ? (
-                  <p className="text-sm text-[--color-text-muted]">No attachments added.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {detail.attachments.map((attachment) => (
-                      <div key={attachment.id} className="rounded-md border border-[--color-border] p-3">
-                        <div className="mb-2 flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-medium text-[--color-text]">{attachment.originalName}</p>
-                            <p className="text-xs text-[--color-text-muted]">
-                              {attachment.mimeType} · {formatBytes(attachment.sizeBytes)}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 text-xs">
-                            <a
-                              href={`/api/ideas/${idea.id}/attachments/${attachment.id}`}
-                              className="text-[--color-primary] hover:underline"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Open
-                            </a>
-                            <a
-                              href={`/api/ideas/${idea.id}/attachments/${attachment.id}?download=1`}
-                              className="text-[--color-text] hover:underline"
-                            >
-                              Download
-                            </a>
-                          </div>
+                {detail.dynamicFields.length > 0 && (
+                  <div className="rounded border border-border bg-muted/50 p-3 text-sm space-y-1">
+                    <p className="font-medium">Category details</p>
+                    <dl className="space-y-1">
+                      {detail.dynamicFields.map((field) => (
+                        <div key={field.fieldKey} className="flex flex-wrap gap-1">
+                          <dt className="font-medium">{formatDynamicFieldLabel(field.fieldKey)}:</dt>
+                          <dd className="text-muted-foreground">{field.value}</dd>
                         </div>
-                        {renderAttachmentPreview(idea.id, attachment)}
+                      ))}
+                    </dl>
+                  </div>
+                )}
+
+                {detail.evaluation !== null && currentUserId === idea.submitterId && (
+                  <div className="rounded border border-border bg-muted/50 p-3 text-sm space-y-1">
+                    <p className="font-medium">
+                      Evaluation:{' '}
+                      <span className={detail.evaluation.status === 'accepted' ? 'text-green-700' : 'text-red-700'}>
+                        {detail.evaluation.status === 'accepted' ? 'Accepted' : 'Rejected'}
+                      </span>
+                    </p>
+                    {detail.evaluation.comment && (
+                      <p className="text-muted-foreground">{detail.evaluation.comment}</p>
+                    )}
+                  </div>
+                )}
+
+                {detail.attachmentName && (
+                  <div>
+                    {detail.attachments && detail.attachments.length > 0 ? (
+                      <div className="space-y-3">
+                        {detail.attachments.map((attachment) => (
+                          <div key={attachment.id} className="rounded-md border border-[--color-border] p-3">
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium text-[--color-text]">{attachment.originalName}</p>
+                                <p className="text-xs text-[--color-text-muted]">
+                                  {attachment.mimeType} · {formatBytes(attachment.sizeBytes)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs">
+                                <a
+                                  href={`/api/ideas/${idea.id}/attachments/${attachment.id}`}
+                                  className="text-[--color-primary] hover:underline"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open
+                                </a>
+                                <a
+                                  href={`/api/ideas/${idea.id}/attachments/${attachment.id}?download=1`}
+                                  className="text-[--color-text] hover:underline"
+                                >
+                                  Download
+                                </a>
+                              </div>
+                            </div>
+                            {renderAttachmentPreview(idea.id, attachment)}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    ) : (
+                      <a
+                        href={`/api/ideas/${idea.id}/attachment`}
+                        download={detail.attachmentName}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-text] hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        ⬇ {detail.attachmentName}
+                        {detail.attachmentSize !== null && (
+                          <span className="text-[--color-text-muted]">({formatBytes(detail.attachmentSize)})</span>
+                        )}
+                      </a>
+                    )}
                   </div>
                 )}
 

@@ -10,6 +10,18 @@
         ".specify/scripts/bash/": true,
         ".specify/scripts/powershell/": true
     },
-    "chat.agent.maxRequests": 150
+    "chat.agent.maxRequests": 150,
+    "chat.mcp.serverSampling": {
+        "InnovatEPAM/.vscode/mcp.json: github": {
+            "allowedModels": [
+                "copilot/auto",
+                "copilotcli/claude-sonnet-4.6",
+                "copilotcli/gpt-5.3-codex",
+                "copilot/gpt-5.3-codex",
+                "copilotcli/gpt-5.4",
+                "copilot/gpt-5.4"
+            ]
+        }
+    }
 }
 

@@ -19,8 +19,22 @@
     {
       "idx": 2,
       "version": "6",
+      "when": 1778774828292,
+      "tag": "0002_bright_hex",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1778781600000,
+      "tag": "0003_dynamic_idea_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
       "when": 1778788800000,
-      "tag": "0002_ideas_multi_attachments",
+      "tag": "0004_ideas_multi_attachments",
       "breakpoints": true
     }
   ]
