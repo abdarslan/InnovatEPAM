@@ -34,3 +34,4 @@
 - All items pass. Spec is ready for `/speckit.plan`.
 - Password reset is explicitly deferred to a separate feature.
 - Admin provisioning mechanism (seed/CLI) is acknowledged in assumptions; implementation detail left to plan phase.
+- **2026-05-14 (constitution v1.3.0 amendment)**: Constitution Constraints section updated to add explicit TypeScript Strict Mode and Testing constraints, reflecting new constitution principles VII and Testing Principles. No functional requirements changed.

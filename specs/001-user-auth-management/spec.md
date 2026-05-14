@@ -150,7 +150,9 @@ An administrator deactivates a user account (e.g., when an employee leaves EPAM)
 The following constraints are mandated by the project constitution and MUST NOT be relaxed:
 
 - **Stack**: Next.js App Router, React 18+, Tailwind CSS, shadcn/ui, TypeScript strict mode.
+- **TypeScript Strict Mode**: All source files MUST compile with `"strict": true`; `any` is FORBIDDEN without an inline disable comment and PR justification; `===` MUST be used throughout; `null`/`undefined` MUST be handled explicitly.
 - **Accessibility**: All non-text content MUST have text alternatives; text contrast ≥ 4.5:1 (WCAG AA).
 - **Error Handling**: Every async operation MUST have explicit error handling; error/loading/empty states are required for all auth forms and redirects.
 - **Dependencies**: No new auth dependency without documented justification aligned with Principle III.
 - **Styling**: Tailwind utility classes only — no custom CSS without constitutional amendment.
+- **Testing**: Unit/component tests MUST use Vitest + React Testing Library; E2E tests (covering registration, login, and admin role-enforcement flows) MUST use Playwright; integration tests for auth server actions and session logic MUST run against a real SQLite test database; core auth business-logic modules MUST achieve ≥ 80% line coverage.
