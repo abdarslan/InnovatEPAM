@@ -36,6 +36,12 @@ export default async function ProtectedLayout({
                 >
                   Users
                 </Link>
+                <Link
+                  href="/admin/ideas"
+                  className="text-sm text-[--color-text] hover:text-[--color-primary]"
+                >
+                  Idea Management
+                </Link>
               </>
             ) : (
               <Link
