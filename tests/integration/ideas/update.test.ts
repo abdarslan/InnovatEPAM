@@ -4,7 +4,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { eq } from 'drizzle-orm'
 import * as schema from '@/lib/db/schema'
-import { ideas, users } from '@/lib/db/schema'
+import { ideaAttachments, ideas, users } from '@/lib/db/schema'
 import { hashPassword } from '@/lib/auth/password'
 
 let testDbFile: Database.Database
@@ -51,16 +51,24 @@ function seedIdea(submitterId: number) {
       description: 'Original description text here.',
       category: 'workplace_culture',
       submitterId,
-      attachmentName: null,
-      attachmentSize: null,
-      attachmentMimeType: null,
-      attachmentContent: null,
       createdAt: now,
       updatedAt: now,
     })
     .returning({ id: ideas.id })
     .all()
   return result[0].id
+}
+
+function seedAttachment(ideaId: number, name = 'report.pdf') {
+  return testDb.insert(ideaAttachments).values({
+    ideaId,
+    originalName: name,
+    mimeType: 'application/pdf',
+    sizeBytes: 4,
+    previewEligible: true,
+    content: Buffer.from([37, 80, 68, 70]),
+    createdAt: Date.now(),
+  }).returning({ id: ideaAttachments.id }).all()[0].id
 }
 
 function mockAuth(userId: number, role: 'submitter' | 'admin' = 'submitter') {
@@ -138,5 +146,24 @@ describe('updateIdeaAction', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error).toMatch(/logged in/i)
+  })
+
+  it('owner can remove an existing attachment and add a new one', async () => {
+    const userId = await seedUser()
+    const ideaId = seedIdea(userId)
+    const existingAttachmentId = seedAttachment(ideaId)
+    mockAuth(userId)
+
+    const { updateIdeaAction } = await import('@/actions/ideas')
+    const fd = makeFormData()
+    fd.append('removeAttachmentIds', String(existingAttachmentId))
+    fd.append('attachments', new File(['fresh'], 'fresh.pdf', { type: 'application/pdf' }))
+
+    const result = await updateIdeaAction(ideaId, fd)
+    expect(result.ok).toBe(true)
+
+    const attachments = testDb.select().from(ideaAttachments).where(eq(ideaAttachments.ideaId, ideaId)).all()
+    expect(attachments).toHaveLength(1)
+    expect(attachments[0].originalName).toBe('fresh.pdf')
   })
 })

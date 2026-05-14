@@ -17,6 +17,9 @@ export default function IdeaList({ ideas, currentUserId, currentUserRole, onDele
 
   return (
     <div className="space-y-3">
+      <p className="text-xs uppercase tracking-wide text-[--color-text-muted]">
+        {ideas.length} ideas · {ideas.reduce((sum, idea) => sum + idea.attachmentCount, 0)} attachments
+      </p>
       {ideas.map((idea) => (
         <IdeaRow
           key={idea.id}

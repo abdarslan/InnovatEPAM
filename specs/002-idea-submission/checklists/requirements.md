@@ -31,5 +31,6 @@
 
 ## Notes
 
-- All checklist items passed on first validation pass.
+- Validation updated after expanding the attachment model from single-file upload to multi-file multimedia attachments with preview support.
+- All checklist items pass after updating user stories, requirements, success criteria, and assumptions to reflect bounded multi-file support.
 - Spec is ready for `/speckit.clarify` or `/speckit.plan`.

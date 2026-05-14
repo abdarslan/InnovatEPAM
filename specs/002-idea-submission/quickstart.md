@@ -1,4 +1,4 @@
-# Quickstart: Idea Submission System
+# Quickstart: Idea Submission System (Multi-attachment + Preview)
 
 **Feature**: `002-idea-submission`
 **Branch**: `002-idea-submission`
@@ -8,144 +8,129 @@
 
 ## Prerequisites
 
-- Node.js 18+ installed
-- Project dependencies installed (`npm install`)
-- Database seeded (`npm run db:seed`)
-- Running dev server (`npm run dev`)
+- Node.js 18+
+- Dependencies installed (`npm install`)
+- Migrated + seeded SQLite DB (`npm run db:migrate`, `npm run db:seed`)
+- Dev server running (`npm run dev`)
 
 ---
 
-## New Source Files
+## Planned File Changes
 
-### Database
+### Database Layer
 
-| File | Purpose |
-|------|---------|
-| `lib/db/schema.ts` | Add `ideas` table + `IDEA_CATEGORIES` enum |
-| `lib/db/migrations/0001_add_ideas_table.sql` | Drizzle migration for `ideas` table |
+| File | Change |
+|---|---|
+| `lib/db/schema.ts` | Replace inline single-attachment columns with normalized `idea_attachments` table + relations |
+| `lib/db/migrations/0002_ideas_multi_attachments.sql` | Add attachment table + backfill + legacy column cleanup |
+| `lib/db/seed.ts` | Seed ideas that include multiple attachments and mixed preview-eligible types |
 
-### Validation
+### Validation + Actions
 
-| File | Purpose |
-|------|---------|
-| `lib/ideas/validation.ts` | Zod schemas: `submitIdeaSchema`, `updateIdeaSchema` |
-
-### Server Actions
-
-| File | Purpose |
-|------|---------|
-| `actions/ideas.ts` | `getIdeasAction`, `getIdeaDetailAction`, `submitIdeaAction`, `updateIdeaAction`, `deleteIdeaAction` |
+| File | Change |
+|---|---|
+| `lib/ideas/validation.ts` | Add multi-file count/per-file/aggregate validation and MIME checks |
+| `actions/ideas.ts` | Update submit/update/detail/list/delete flows for attachment arrays and owner add/remove behavior |
 
 ### API Routes
 
-| File | Purpose |
-|------|---------|
-| `app/api/ideas/[id]/attachment/route.ts` | Authenticated file download endpoint |
+| File | Change |
+|---|---|
+| `app/api/ideas/[id]/attachments/[attachmentId]/route.ts` | New authenticated preview/download endpoint per attachment |
+| `app/api/ideas/[id]/attachment/route.ts` | Optional compatibility shim during migration (legacy callers) |
 
-### App Routes
+### UI Components and Pages
 
-| File | Purpose |
-|------|---------|
-| `app/(protected)/ideas/page.tsx` | Idea listing page with expandable rows |
-| `app/(protected)/ideas/new/page.tsx` | Idea submission form page |
-| `app/(protected)/ideas/[id]/edit/page.tsx` | Edit idea form page (submitter only) |
+| File | Change |
+|---|---|
+| `components/ideas/IdeaForm.tsx` | Support selecting multiple files, local preview, per-file remove before submit |
+| `components/ideas/IdeaRow.tsx` | Render attachment gallery/list with inline preview or metadata fallback + download controls |
+| `components/ideas/IdeaList.tsx` | Display attachment count and preserve empty/error states |
+| `app/(protected)/ideas/page.tsx` | Ensure detail payload includes attachments |
+| `app/(protected)/ideas/new/page.tsx` | Submit multi-attachment payload |
+| `app/(protected)/ideas/[id]/edit/page.tsx` | Add/remove attachments for owner post-submission |
 
-### Components
+### Tests
 
-| File | Purpose |
-|------|---------|
-| `components/ideas/IdeaForm.tsx` | Shared form for submit and edit flows |
-| `components/ideas/IdeaList.tsx` | List container with empty state |
-| `components/ideas/IdeaRow.tsx` | Single collapsible row in the listing |
-| `components/ideas/DeleteIdeaButton.tsx` | AlertDialog confirmation + delete action (FR-020) |
-| `components/ideas/IdeaForm.test.tsx` | Unit tests for `IdeaForm` |
-| `components/ideas/IdeaRow.test.tsx` | Unit tests for `IdeaRow` |
-| `components/ideas/DeleteIdeaButton.test.tsx` | Unit tests for `DeleteIdeaButton` (confirm + cancel paths) |
-
-### Integration Tests
-
-| File | Purpose |
-|------|---------|
-| `tests/integration/ideas/submit.test.ts` | Server action integration tests: submit |
-| `tests/integration/ideas/update.test.ts` | Server action integration tests: update |
-| `tests/integration/ideas/delete.test.ts` | Server action integration tests: delete |
-| `tests/integration/ideas/list.test.ts` | Server action integration tests: list |
-
-### E2E Tests
-
-| File | Purpose |
-|------|---------|
-| `tests/e2e/idea-submission-flow.spec.ts` | Full submission journey |
-| `tests/e2e/idea-listing-flow.spec.ts` | Listing + expand + download |
-| `tests/e2e/idea-edit-delete-flow.spec.ts` | Edit and delete journeys |
-
-### ADRs
-
-| File | Decision |
-|------|----------|
-| `docs/adrs/adr-0005-idea-attachment-storage.md` | SQLite BLOB storage for file attachments |
+| File | Change |
+|---|---|
+| `components/ideas/IdeaForm.test.tsx` | Multi-select, per-file removal, preview/fallback rendering |
+| `components/ideas/IdeaRow.test.tsx` | Attachment preview/download and metadata fallback states |
+| `tests/integration/ideas/submit.test.ts` | Count, size, type, aggregate validation and transaction rollback |
+| `tests/integration/ideas/update.test.ts` | Owner add/remove attachment behavior after submission |
+| `tests/integration/ideas/attachment.test.ts` | Auth-protected per-attachment preview/download route semantics |
+| `tests/integration/ideas/delete.test.ts` | Attachment cleanup/cascade after idea deletion |
+| `tests/e2e/ideas-multimedia-flow.spec.ts` | End-to-end submit, preview, edit attachment lifecycle |
 
 ---
 
-## Key Development Commands
+## Development Commands
 
 ```bash
-# Install required shadcn/ui components
-npx shadcn@latest add collapsible
-npx shadcn@latest add alert-dialog
+# Database lifecycle
 npm run db:migrate
-
-# Re-seed the database
 npm run db:seed
 
-# Type check
+# Validation gates
 npm run type-check
-
-# Lint
 npm run lint
-
-# Unit + component tests
 npm run test
+npm run e2e
 
-# E2E tests
-npx playwright test
-
-# Full validation pass
-npm run type-check && npm run lint && npm run test
+# Focused integration run
+npm run test -- tests/integration/ideas
 ```
 
 ---
 
 ## Route Map
 
-| URL | Page | Auth |
-|-----|------|------|
-| `/ideas` | Idea listing | Authenticated |
-| `/ideas/new` | Submit idea form | Authenticated |
-| `/ideas/[id]/edit` | Edit idea form | Authenticated + own idea |
-| `/api/ideas/[id]/attachment` | File download | Authenticated |
+| URL | Purpose | Auth |
+|---|---|---|
+| `/ideas` | Listing with expandable detail and attachment preview/download controls | Required |
+| `/ideas/new` | Submit idea with optional multiple attachments | Required |
+| `/ideas/[id]/edit` | Edit idea and manage attachments (owner only) | Required |
+| `/api/ideas/[id]/attachments/[attachmentId]` | Attachment preview/download payload | Required |
 
 ---
 
-## User Flow Summary
+## User Flow Snapshot
 
-```
+```text
 Login
-  └─> /dashboard
-        └─> /ideas                  (listing — expandable rows)
-              ├─> [expand row]      (reveal description + download link)
-              ├─> [New Idea]        → /ideas/new
-              │     └─> submit      → redirect to /ideas
-              ├─> [Edit]            → /ideas/[id]/edit   (own ideas only)
-              │     └─> save        → redirect to /ideas
-              └─> [Delete]          (confirm dialog → remove → reload listing)
+      -> /ideas
+            -> New Idea
+                  -> Fill title/description/category
+                  -> Select up to 5 attachments
+                  -> Preview supported media or see file metadata fallback
+                  -> Submit
+                  -> Redirect to /ideas
+
+            -> Expand row
+                  -> Read full description
+                  -> Preview/download each attachment
+
+            -> Edit own idea
+                  -> Add new attachments
+                  -> Remove individual existing attachments
+                  -> Save
 ```
 
 ---
 
-## Attachment Download Flow
+## Freshness Follow-up
 
-1. User expands an idea row that has an attachment.
-2. A "Download [filename]" link renders pointing to `/api/ideas/[id]/attachment`.
-3. The GET route verifies the session cookie, fetches the BLOB from SQLite, and returns a binary `Response` with `Content-Disposition: attachment`.
-4. Browser triggers the native file download.
+Context7 documentation verification for Next.js and Drizzle was attempted during planning but failed because the environment lacks a valid Context7 API key. Add a pre-implementation checklist item to re-run docs verification once credentials are available.
+
+---
+
+## Implementation Evidence
+
+- `npm run type-check` ✅
+- `npm run lint` ✅
+- `npm run test -- tests/integration/ideas` ✅
+- `npm run test -- components/ideas/IdeaForm.test.tsx components/ideas/IdeaRow.test.tsx` ✅
+
+### Remaining Validation
+
+- E2E coverage for the multimedia edit/add/remove/delete flow is still pending (`tests/e2e/ideas-multimedia-flow.spec.ts`).

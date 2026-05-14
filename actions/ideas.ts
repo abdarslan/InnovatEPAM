@@ -1,8 +1,9 @@
 'use server'
 
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
+  ideaAttachments,
   ideas,
   ideaCategoryFieldRules,
   ideaEvaluations,
@@ -15,11 +16,15 @@ import {
 import { requireAuth } from '@/lib/auth/session'
 import {
   collectDynamicFieldEntries,
+  MAX_ATTACHMENTS_PER_IDEA,
+  MAX_TOTAL_ATTACHMENT_SIZE_BYTES,
+  isPreviewEligibleMimeType,
   submitIdeaSchema,
   type UpsertCategoryFieldRuleInput,
   updateIdeaSchema,
   startReviewSchema,
   evaluateIdeaSchema,
+  validateAttachmentFiles,
 } from '@/lib/ideas/validation'
 import { validateTransition } from '@/lib/ideas/transitions'
 import { getActiveRulesForCategory, validateDynamicFieldValues } from '@/lib/ideas/category-fields'
@@ -58,6 +63,14 @@ export type IdeaDynamicFieldValue = {
   value: string
 }
 
+export type IdeaAttachmentMeta = {
+  id: number
+  originalName: string
+  mimeType: string
+  sizeBytes: number
+  previewEligible: boolean
+}
+
 // ---------------------------------------------------------------------------
 // List / detail shapes (no BLOB content)
 // ---------------------------------------------------------------------------
@@ -72,6 +85,7 @@ export type IdeaListItem = {
   createdAt: number
   updatedAt: number
   hasAttachment: boolean
+  attachmentCount: number
 }
 
 export type IdeaEvaluationForSubmitter = {
@@ -83,6 +97,8 @@ export type IdeaEvaluationForSubmitter = {
 
 export type IdeaDetail = IdeaListItem & {
   description: string
+  attachments: IdeaAttachmentMeta[]
+  // legacy compat fields (first attachment, for backward compat)
   attachmentName: string | null
   attachmentSize: number | null
   attachmentMimeType: string | null
@@ -159,6 +175,65 @@ export async function getCategoryFieldRulesAction(
 }
 
 // ---------------------------------------------------------------------------
+// Attachment helpers
+// ---------------------------------------------------------------------------
+
+function getAttachmentFilesFromFormData(formData: FormData): File[] {
+  const multi = formData.getAll('attachments')
+  if (multi.length > 0) return multi.filter((f): f is File => f instanceof File && f.size > 0)
+  const single = formData.get('attachment')
+  return single instanceof File && single.size > 0 ? [single] : []
+}
+
+function parseRemoveAttachmentIds(formData: FormData): number[] {
+  const values = formData.getAll('removeAttachmentIds')
+  if (values.length > 0) {
+    return values
+      .map((v) => Number(v))
+      .filter((n) => Number.isInteger(n) && n > 0)
+  }
+  const json = formData.get('removeAttachmentIds')
+  if (typeof json === 'string') {
+    try {
+      const parsed = JSON.parse(json)
+      if (Array.isArray(parsed)) return parsed.filter((n) => Number.isInteger(n) && n > 0)
+    } catch { /* ignore */ }
+  }
+  return []
+}
+
+async function prepareAttachmentInserts(files: File[]) {
+  return Promise.all(
+    files.map(async (file) => ({
+      originalName: file.name,
+      mimeType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      previewEligible: isPreviewEligibleMimeType(file.type),
+      content: Buffer.from(await file.arrayBuffer()),
+      createdAt: Date.now(),
+    })),
+  )
+}
+
+function validateUpdatedAttachmentTotals(
+  existingSizes: number[],
+  removedSizes: number[],
+  newFiles: File[],
+): string | null {
+  const remainingCount = existingSizes.length - removedSizes.length + newFiles.length
+  if (remainingCount > MAX_ATTACHMENTS_PER_IDEA) {
+    return `You can upload up to ${MAX_ATTACHMENTS_PER_IDEA} attachments.`
+  }
+  const existingTotal = existingSizes.reduce((s, n) => s + n, 0)
+  const removedTotal = removedSizes.reduce((s, n) => s + n, 0)
+  const newTotal = newFiles.reduce((s, f) => s + f.size, 0)
+  if (existingTotal - removedTotal + newTotal > MAX_TOTAL_ATTACHMENT_SIZE_BYTES) {
+    return 'Attachments must total 25 MB or less.'
+  }
+  return null
+}
+
+// ---------------------------------------------------------------------------
 // getIdeasAction
 // ---------------------------------------------------------------------------
 
@@ -179,19 +254,34 @@ export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
         submitterId: ideas.submitterId,
         createdAt: ideas.createdAt,
         updatedAt: ideas.updatedAt,
-        attachmentName: ideas.attachmentName,
       })
       .from(ideas)
       .innerJoin(users, eq(ideas.submitterId, users.id))
-      .orderBy(ideas.createdAt)
-    const data: IdeaListItem[] = rows
-      .reverse()
-      .map((r) => ({
-        ...r,
-        category: r.category as IdeaCategory,
-        status: r.status as IdeaStatus,
-        hasAttachment: r.attachmentName !== null,
-      }))
+      .orderBy(desc(ideas.createdAt))
+
+    const ideaIds = rows.map((row) => row.id)
+    const attachmentRows = ideaIds.length === 0
+      ? []
+      : await db
+        .select({ ideaId: ideaAttachments.ideaId })
+        .from(ideaAttachments)
+        .where(inArray(ideaAttachments.ideaId, ideaIds))
+
+    const attachmentCounts = new Map<number, number>()
+    for (const row of attachmentRows) {
+      attachmentCounts.set(row.ideaId, (attachmentCounts.get(row.ideaId) ?? 0) + 1)
+    }
+
+    const data: IdeaListItem[] = rows.map((row) => {
+      const attachmentCount = attachmentCounts.get(row.id) ?? 0
+      return {
+        ...row,
+        category: row.category as IdeaCategory,
+        status: row.status as IdeaStatus,
+        attachmentCount,
+        hasAttachment: attachmentCount > 0,
+      }
+    })
     return { ok: true, data }
   } catch {
     return { ok: false, error: 'Failed to load ideas. Please try again.' }
@@ -209,7 +299,6 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
     return { ok: false, error: 'You must be logged in to view ideas.' }
   }
   try {
-    // Use raw joins for aliases
     const rows = await db
       .select({
         id: ideas.id,
@@ -221,9 +310,6 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
         submitterId: ideas.submitterId,
         createdAt: ideas.createdAt,
         updatedAt: ideas.updatedAt,
-        attachmentName: ideas.attachmentName,
-        attachmentSize: ideas.attachmentSize,
-        attachmentMimeType: ideas.attachmentMimeType,
         evalStatus:    ideaEvaluations.status,
         evalComment:   ideaEvaluations.comment,
         evalCreatedAt: ideaEvaluations.createdAt,
@@ -238,7 +324,6 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
 
     let evaluation: IdeaEvaluationForSubmitter | null = null
     if (r.evalStatus !== null && r.evalAdminId !== null && r.evalCreatedAt !== null) {
-      // Fetch admin name
       const adminRows = await db.select({ displayName: users.displayName }).from(users).where(eq(users.id, r.evalAdminId))
       evaluation = {
         adminName: adminRows[0]?.displayName ?? 'Admin',
@@ -253,6 +338,27 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
       .from(ideaFieldValues)
       .where(eq(ideaFieldValues.ideaId, id))
 
+    const attachmentRows = await db
+      .select({
+        id: ideaAttachments.id,
+        originalName: ideaAttachments.originalName,
+        mimeType: ideaAttachments.mimeType,
+        sizeBytes: ideaAttachments.sizeBytes,
+        previewEligible: ideaAttachments.previewEligible,
+      })
+      .from(ideaAttachments)
+      .where(eq(ideaAttachments.ideaId, id))
+      .orderBy(asc(ideaAttachments.createdAt))
+
+    const attachments: IdeaAttachmentMeta[] = attachmentRows.map((a) => ({
+      id: a.id,
+      originalName: a.originalName,
+      mimeType: a.mimeType,
+      sizeBytes: a.sizeBytes,
+      previewEligible: a.previewEligible,
+    }))
+
+    const firstAttachment = attachments[0] ?? null
     const data: IdeaDetail = {
       id: r.id,
       title: r.title,
@@ -263,10 +369,13 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
       submitterId: r.submitterId,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
-      attachmentName: r.attachmentName,
-      attachmentSize: r.attachmentSize,
-      attachmentMimeType: r.attachmentMimeType,
-      hasAttachment: r.attachmentName !== null,
+      attachments,
+      attachmentCount: attachments.length,
+      hasAttachment: attachments.length > 0,
+      // legacy compat fields
+      attachmentName: firstAttachment?.originalName ?? null,
+      attachmentSize: firstAttachment?.sizeBytes ?? null,
+      attachmentMimeType: firstAttachment?.mimeType ?? null,
       evaluation,
       dynamicFields: dynamicRows,
     }
@@ -290,14 +399,12 @@ export async function submitIdeaAction(
     return { ok: false, error: 'You must be logged in to submit an idea.' }
   }
 
+  const attachmentFiles = getAttachmentFilesFromFormData(formData)
   const raw = {
     title: formData.get('title'),
     description: formData.get('description'),
     category: formData.get('category'),
-    attachment: (() => {
-      const f = formData.get('attachment')
-      return f instanceof File && f.size > 0 ? f : undefined
-    })(),
+    attachments: attachmentFiles,
   }
 
   const parsed = submitIdeaSchema.safeParse(raw)
@@ -305,7 +412,12 @@ export async function submitIdeaAction(
     return { ok: false, error: parsed.error.issues[0].message }
   }
 
-  const { title, description, category, attachment } = parsed.data
+  const attachmentValidation = validateAttachmentFiles(parsed.data.attachments)
+  if (!attachmentValidation.success) {
+    return { ok: false, error: attachmentValidation.error.issues[0].message }
+  }
+
+  const { title, description, category } = parsed.data
 
   const dynamicEntries = collectDynamicFieldEntries(formData)
   const activeRules = await getActiveRulesForCategory(category)
@@ -315,39 +427,32 @@ export async function submitIdeaAction(
     return { ok: false, error: firstError }
   }
 
-  let attachmentName: string | null = null
-  let attachmentSize: number | null = null
-  let attachmentMimeType: string | null = null
-  let attachmentContent: Buffer | null = null
-
-  if (attachment) {
-    attachmentName = attachment.name
-    attachmentSize = attachment.size
-    attachmentMimeType = attachment.type
-    attachmentContent = Buffer.from(await attachment.arrayBuffer())
-  }
+  const preparedAttachments = await prepareAttachmentInserts(parsed.data.attachments)
 
   try {
     const now = Date.now()
-    const result = db.transaction(() => {
-      const inserted = db
+    const result = db.transaction((tx) => {
+      const insertedIdea = tx
         .insert(ideas)
         .values({
           title,
           description,
           category,
           submitterId: session.userId,
-          attachmentName,
-          attachmentSize,
-          attachmentMimeType,
-          attachmentContent,
           createdAt: now,
           updatedAt: now,
         })
         .returning({ id: ideas.id })
         .all()
 
-      const insertedIdeaId = inserted[0].id
+      const insertedIdeaId = insertedIdea[0].id
+
+      if (preparedAttachments.length > 0) {
+        tx.insert(ideaAttachments)
+          .values(preparedAttachments.map((a) => ({ ...a, ideaId: insertedIdeaId })))
+          .run()
+      }
+
       const dynamicValueRows = Object.entries(dynamicValidation.normalizedValues)
         .map(([fieldKey, value]) => {
           const rule = activeRules.find((r) => r.fieldKey === fieldKey)
@@ -364,10 +469,10 @@ export async function submitIdeaAction(
         .filter((row): row is NonNullable<typeof row> => row !== null)
 
       if (dynamicValueRows.length > 0) {
-        db.insert(ideaFieldValues).values(dynamicValueRows).run()
+        tx.insert(ideaFieldValues).values(dynamicValueRows).run()
       }
 
-      return inserted
+      return insertedIdea
     })
     return { ok: true, data: { id: result[0].id } }
   } catch {
@@ -400,14 +505,14 @@ export async function updateIdeaAction(
     return { ok: false, error: 'You are not authorised to edit this idea.' }
   }
 
+  const attachmentFiles = getAttachmentFilesFromFormData(formData)
+  const removeAttachmentIds = parseRemoveAttachmentIds(formData)
   const raw = {
     title: formData.get('title'),
     description: formData.get('description'),
     category: formData.get('category'),
-    attachment: (() => {
-      const f = formData.get('attachment')
-      return f instanceof File && f.size > 0 ? f : undefined
-    })(),
+    attachments: attachmentFiles,
+    removeAttachmentIds,
   }
 
   const parsed = updateIdeaSchema.safeParse(raw)
@@ -415,35 +520,50 @@ export async function updateIdeaAction(
     return { ok: false, error: parsed.error.issues[0].message }
   }
 
-  const { title, description, category, attachment } = parsed.data
-
-  let attachmentName: string | null | undefined = undefined
-  let attachmentSize: number | null | undefined = undefined
-  let attachmentMimeType: string | null | undefined = undefined
-  let attachmentContent: Buffer | null | undefined = undefined
-
-  if (attachment) {
-    attachmentName = attachment.name
-    attachmentSize = attachment.size
-    attachmentMimeType = attachment.type
-    attachmentContent = Buffer.from(await attachment.arrayBuffer())
+  const attachmentValidation = validateAttachmentFiles(parsed.data.attachments)
+  if (!attachmentValidation.success) {
+    return { ok: false, error: attachmentValidation.error.issues[0].message }
   }
 
+  const existingAttachments = await db
+    .select({ id: ideaAttachments.id, sizeBytes: ideaAttachments.sizeBytes })
+    .from(ideaAttachments)
+    .where(eq(ideaAttachments.ideaId, id))
+
+  const existingAttachmentIds = new Set(existingAttachments.map((a) => a.id))
+  if (parsed.data.removeAttachmentIds.some((aId) => !existingAttachmentIds.has(aId))) {
+    return { ok: false, error: 'One or more selected attachments could not be found.' }
+  }
+
+  const removedSizes = existingAttachments
+    .filter((a) => parsed.data.removeAttachmentIds.includes(a.id))
+    .map((a) => a.sizeBytes)
+
+  const totalValidationError = validateUpdatedAttachmentTotals(
+    existingAttachments.map((a) => a.sizeBytes),
+    removedSizes,
+    parsed.data.attachments,
+  )
+  if (totalValidationError) return { ok: false, error: totalValidationError }
+
+  const { title, description, category } = parsed.data
+  const preparedAttachments = await prepareAttachmentInserts(parsed.data.attachments)
+
   try {
-    db.transaction(() => {
-      const updateData: Record<string, unknown> = {
-        title,
-        description,
-        category,
-        updatedAt: Date.now(),
+    db.transaction((tx) => {
+      tx.update(ideas).set({ title, description, category, updatedAt: Date.now() }).where(eq(ideas.id, id)).run()
+
+      if (parsed.data.removeAttachmentIds.length > 0) {
+        tx.delete(ideaAttachments)
+          .where(inArray(ideaAttachments.id, parsed.data.removeAttachmentIds))
+          .run()
       }
-      if (attachmentName !== undefined) {
-        updateData.attachmentName = attachmentName
-        updateData.attachmentSize = attachmentSize
-        updateData.attachmentMimeType = attachmentMimeType
-        updateData.attachmentContent = attachmentContent
+
+      if (preparedAttachments.length > 0) {
+        tx.insert(ideaAttachments)
+          .values(preparedAttachments.map((a) => ({ ...a, ideaId: id })))
+          .run()
       }
-      db.update(ideas).set(updateData).where(eq(ideas.id, id)).run()
     })
     return { ok: true, data: undefined }
   } catch {
@@ -485,7 +605,7 @@ export async function deleteIdeaAction(id: number): Promise<ActionResult<void>> 
 }
 
 // ---------------------------------------------------------------------------
-// startReviewAction — admin only, Submitted → UnderReview
+// startReviewAction ΓÇö admin only, Submitted ΓåÆ UnderReview
 // ---------------------------------------------------------------------------
 
 export async function startReviewAction(ideaId: number): Promise<ActionResult<void>> {
@@ -528,7 +648,7 @@ export async function startReviewAction(ideaId: number): Promise<ActionResult<vo
 }
 
 // ---------------------------------------------------------------------------
-// evaluateIdeaAction — admin only, UnderReview → Accepted | Rejected
+// evaluateIdeaAction ΓÇö admin only, UnderReview ΓåÆ Accepted | Rejected
 // ---------------------------------------------------------------------------
 
 export async function evaluateIdeaAction(
@@ -584,7 +704,7 @@ export async function evaluateIdeaAction(
 }
 
 // ---------------------------------------------------------------------------
-// getAdminIdeasAction — admin only, all ideas with reviewer + evaluation info
+// getAdminIdeasAction ΓÇö admin only, all ideas with reviewer + evaluation info
 // ---------------------------------------------------------------------------
 
 export async function getAdminIdeasAction(
@@ -616,7 +736,6 @@ export async function getAdminIdeasAction(
         submitterId:     ideas.submitterId,
         createdAt:       ideas.createdAt,
         updatedAt:       ideas.updatedAt,
-        attachmentName:  ideas.attachmentName,
         reviewerId:      ideas.reviewerId,
         reviewStartedAt: ideas.reviewStartedAt,
         evalStatus:      ideaEvaluations.status,
@@ -657,7 +776,8 @@ export async function getAdminIdeasAction(
       submitterId:     r.submitterId,
       createdAt:       r.createdAt,
       updatedAt:       r.updatedAt,
-      hasAttachment:   r.attachmentName !== null,
+      hasAttachment:   false, // attachment count not fetched in admin list for performance
+      attachmentCount: 0,
       reviewerName:    r.reviewerId ? (adminMap.get(r.reviewerId) ?? null) : null,
       reviewStartedAt: r.reviewStartedAt ?? null,
       evaluation: r.evalStatus !== null && r.evalAdminId !== null && r.evalCreatedAt !== null

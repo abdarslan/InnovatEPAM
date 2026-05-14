@@ -48,20 +48,16 @@ export const IDEA_STATUSES = [
 export type IdeaStatus = typeof IDEA_STATUSES[number]
 
 export const ideas = sqliteTable('ideas', {
-  id:                 integer('id').primaryKey({ autoIncrement: true }),
-  title:              text('title').notNull(),
-  description:        text('description').notNull(),
-  category:           text('category', { enum: IDEA_CATEGORIES }).notNull(),
-  submitterId:        integer('submitter_id').notNull().references(() => users.id),
-  attachmentName:     text('attachment_name'),
-  attachmentSize:     integer('attachment_size'),
-  attachmentMimeType: text('attachment_mime_type'),
-  attachmentContent:  blob('attachment_content', { mode: 'buffer' }),
-  status:             text('status', { enum: IDEA_STATUSES }).notNull().default('submitted'),
-  reviewerId:         integer('reviewer_id').references(() => users.id),
-  reviewStartedAt:    integer('review_started_at'),
-  createdAt:          integer('created_at').notNull(),
-  updatedAt:          integer('updated_at').notNull(),
+  id:             integer('id').primaryKey({ autoIncrement: true }),
+  title:          text('title').notNull(),
+  description:    text('description').notNull(),
+  category:       text('category', { enum: IDEA_CATEGORIES }).notNull(),
+  submitterId:    integer('submitter_id').notNull().references(() => users.id),
+  status:         text('status', { enum: IDEA_STATUSES }).notNull().default('submitted'),
+  reviewerId:     integer('reviewer_id').references(() => users.id),
+  reviewStartedAt: integer('review_started_at'),
+  createdAt:      integer('created_at').notNull(),
+  updatedAt:      integer('updated_at').notNull(),
 })
 
 export type Idea    = typeof ideas.$inferSelect
@@ -150,3 +146,28 @@ export const ideaFieldValues = sqliteTable(
 
 export type IdeaFieldValue = typeof ideaFieldValues.$inferSelect
 export type NewIdeaFieldValue = typeof ideaFieldValues.$inferInsert
+
+// ---------------------------------------------------------------------------
+// Idea Attachments
+// ---------------------------------------------------------------------------
+
+export const ideaAttachments = sqliteTable(
+  'idea_attachments',
+  {
+    id:              integer('id').primaryKey({ autoIncrement: true }),
+    ideaId:          integer('idea_id').notNull().references(() => ideas.id, { onDelete: 'cascade' }),
+    originalName:    text('original_name').notNull(),
+    mimeType:        text('mime_type').notNull(),
+    sizeBytes:       integer('size_bytes').notNull(),
+    previewEligible: integer('preview_eligible', { mode: 'boolean' }).notNull(),
+    content:         blob('content', { mode: 'buffer' }).notNull(),
+    createdAt:       integer('created_at').notNull(),
+  },
+  (table) => ({
+    ideaIdIdx:    index('idea_attachments_idea_id_idx').on(table.ideaId),
+    createdAtIdx: index('idea_attachments_created_at_idx').on(table.createdAt),
+  }),
+)
+
+export type IdeaAttachment = typeof ideaAttachments.$inferSelect
+export type NewIdeaAttachment = typeof ideaAttachments.$inferInsert

@@ -3,9 +3,15 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { getCategoryFieldRulesAction, type CategoryFieldRule } from '@/actions/ideas'
+import { getCategoryFieldRulesAction, type CategoryFieldRule, type IdeaAttachmentMeta } from '@/actions/ideas'
 import { IDEA_CATEGORIES, type IdeaCategory } from '@/lib/db/schema'
 import { submitIdeaSchema, type SubmitIdeaInput } from '@/lib/ideas/validation'
+import {
+  MAX_ATTACHMENTS_PER_IDEA,
+  MAX_TOTAL_ATTACHMENT_SIZE_BYTES,
+  isPreviewEligibleMimeType,
+  validateAttachmentFiles,
+} from '@/lib/ideas/validation'
 import type { ActionResult } from '@/actions/ideas'
 
 const CATEGORY_LABELS: Record<IdeaCategory, string> = {
@@ -17,11 +23,55 @@ const CATEGORY_LABELS: Record<IdeaCategory, string> = {
   event_plan: 'Event Plan',
 }
 
+type PendingAttachment = {
+  id: string
+  file: File
+  previewUrl: string | null
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function createPendingAttachment(file: File, index: number): PendingAttachment {
+  return {
+    id: `${file.name}-${file.size}-${Date.now()}-${index}`,
+    file,
+    previewUrl: isPreviewEligibleMimeType(file.type) ? URL.createObjectURL(file) : null,
+  }
+}
+
+function renderAttachmentPreview(name: string, mimeType: string, previewUrl: string | null) {
+  if (!previewUrl) return <p className="text-xs text-[--color-text-muted]">Preview not available for this file type.</p>
+  if (mimeType.startsWith('image/')) return <img src={previewUrl} alt={name} className="max-h-32 rounded-md border border-[--color-border] object-cover" />
+  if (mimeType.startsWith('audio/')) return <audio controls src={previewUrl} className="w-full" />
+  if (mimeType.startsWith('video/')) return <video controls src={previewUrl} className="max-h-40 w-full rounded-md border border-[--color-border]" />
+  if (mimeType === 'application/pdf') return <iframe src={previewUrl} title={name} className="h-40 w-full rounded-md border border-[--color-border]" />
+  return <p className="text-xs text-[--color-text-muted]">Preview not available for this file type.</p>
+}
+
+function getAttachmentError(
+  pendingAttachments: PendingAttachment[],
+  existingAttachments: IdeaAttachmentMeta[],
+  removedAttachmentIds: number[],
+): string | null {
+  const validation = validateAttachmentFiles(pendingAttachments.map((a) => a.file))
+  if (!validation.success) return validation.error.issues[0].message
+  const remaining = existingAttachments.filter((a) => !removedAttachmentIds.includes(a.id))
+  if (remaining.length + pendingAttachments.length > MAX_ATTACHMENTS_PER_IDEA) return 'You can upload up to 5 attachments.'
+  const totalBytes = remaining.reduce((s, a) => s + a.sizeBytes, 0) + pendingAttachments.reduce((s, a) => s + a.file.size, 0)
+  if (totalBytes > MAX_TOTAL_ATTACHMENT_SIZE_BYTES) return 'Attachments must total 25 MB or less.'
+  return null
+}
+
 type IdeaFormProps = {
   action: (formData: FormData) => Promise<ActionResult<{ id: number } | void>>
   defaultValues?: Partial<SubmitIdeaInput>
   onSuccess?: (id?: number) => void
   submitLabel?: string
+  existingAttachments?: IdeaAttachmentMeta[]
 }
 
 export default function IdeaForm({
@@ -29,14 +79,17 @@ export default function IdeaForm({
   defaultValues,
   onSuccess,
   submitLabel = 'Submit Idea',
+  existingAttachments = [],
 }: IdeaFormProps) {
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
+  const [removedAttachmentIds, setRemovedAttachmentIds] = useState<number[]>([])
   const [dynamicRules, setDynamicRules] = useState<CategoryFieldRule[]>([])
   const [dynamicValues, setDynamicValues] = useState<Record<string, string>>({})
   const [dynamicErrors, setDynamicErrors] = useState<Record<string, string>>({})
   const [dynamicRulesError, setDynamicRulesError] = useState<string | null>(null)
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const {
@@ -168,6 +221,8 @@ export default function IdeaForm({
 
   function onSubmit(data: SubmitIdeaInput) {
     setServerError(null)
+    const currentAttachmentError = getAttachmentError(pendingAttachments, existingAttachments, removedAttachmentIds)
+    if (currentAttachmentError) { setAttachmentError(currentAttachmentError); return }
     if (!validateDynamicFields()) return
 
     startTransition(async () => {
@@ -178,23 +233,24 @@ export default function IdeaForm({
 
       for (const rule of dynamicRules) {
         const value = (dynamicValues[rule.fieldKey] ?? '').trim()
-        if (value.length > 0) {
-          formData.set(`dynamic_${rule.fieldKey}`, value)
-        }
+        if (value.length > 0) formData.set(`dynamic_${rule.fieldKey}`, value)
       }
 
-      const file = fileInputRef.current?.files?.[0]
-      if (file) formData.set('attachment', file)
+      for (const attachment of pendingAttachments) formData.append('attachments', attachment.file)
+      for (const attachmentId of removedAttachmentIds) formData.append('removeAttachmentIds', String(attachmentId))
 
       const result = await action(formData)
-      if (!result.ok) {
-        setServerError(result.error)
-        return
+      if (!result.ok) { setServerError(result.error); return }
+
+      for (const attachment of pendingAttachments) {
+        if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl)
       }
       reset()
       setDynamicValues({})
       setDynamicErrors({})
-      setSelectedFileName(null)
+      setPendingAttachments([])
+      setRemovedAttachmentIds([])
+      setAttachmentError(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
       const id = result.ok && 'data' in result && result.data && typeof result.data === 'object' && 'id' in result.data
         ? (result.data as { id: number }).id
@@ -265,7 +321,7 @@ export default function IdeaForm({
           className="w-full rounded-md border border-[--color-border] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
           {...register('category')}
         >
-          <option value="">Select a category…</option>
+          <option value="">Select a categoryΓÇª</option>
           {IDEA_CATEGORIES.map((cat) => (
             <option key={cat} value={cat}>
               {CATEGORY_LABELS[cat]}
@@ -350,32 +406,72 @@ export default function IdeaForm({
       )}
 
       {/* File attachment */}
+      {/* File attachments */}
       <div className="space-y-1">
-        <label htmlFor="attachment" className="block text-sm font-medium text-[--color-text]">
-          Attachment{' '}
+        <label htmlFor="attachments" className="block text-sm font-medium text-[--color-text]">
+          Attachments{' '}
           <span className="text-xs font-normal text-[--color-text-muted]">
-            (optional — PDF, DOCX, PNG, JPG, max 5 MB)
+            (optional — up to 5 files, 10 MB each, 25 MB total)
           </span>
         </label>
         <input
-          id="attachment"
+          id="attachments"
           type="file"
-          accept=".pdf,.docx,.png,.jpg,.jpeg"
+          multiple
+          accept=".pdf,.doc,.docx,image/*,audio/*,video/*"
           ref={fileInputRef}
           aria-describedby="attachment-hint"
           onChange={(e) => {
-            const file = e.target.files?.[0]
-            setSelectedFileName(file ? file.name : null)
+            const files = Array.from(e.target.files ?? [])
+            if (files.length === 0) return
+            setPendingAttachments((current) => [
+              ...current,
+              ...files.map((file, index) => createPendingAttachment(file, index)),
+            ])
+            e.target.value = ''
           }}
           className="block w-full text-sm text-[--color-text-muted] file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:cursor-pointer"
         />
         <p id="attachment-hint" className="text-xs text-[--color-text-muted]">
-          {selectedFileName ? `Selected: ${selectedFileName}` : 'No file selected.'}
+          Supported: PDF, DOC, DOCX, PNG, JPG, GIF, MP3, WAV, WEBM, MP4.
         </p>
-        {errors.attachment && (
-          <p role="alert" className="text-xs text-red-600">
-            {errors.attachment.message as string}
-          </p>
+        {attachmentError && (
+          <p role="alert" className="text-xs text-red-600">{attachmentError}</p>
+        )}
+        {existingAttachments.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-[--color-text-muted]">Existing attachments</p>
+            {existingAttachments
+              .filter((a) => !removedAttachmentIds.includes(a.id))
+              .map((a) => (
+                <div key={a.id} className="rounded-md border border-[--color-border] p-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-[--color-text]">{a.originalName}</p>
+                    <p className="text-xs text-[--color-text-muted]">{a.mimeType} · {formatBytes(a.sizeBytes)}</p>
+                  </div>
+                  <button type="button" onClick={() => setRemovedAttachmentIds((c) => [...c, a.id])} className="text-xs text-red-600 hover:underline">Remove</button>
+                </div>
+              ))}
+          </div>
+        )}
+        {pendingAttachments.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-[--color-text-muted]">Selected attachments</p>
+            {pendingAttachments.map((a) => (
+              <div key={a.id} className="rounded-md border border-[--color-border] p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-sm font-medium text-[--color-text]">{a.file.name}</p>
+                      <p className="text-xs text-[--color-text-muted]">{a.file.type || 'application/octet-stream'} · {formatBytes(a.file.size)}</p>
+                    </div>
+                    {renderAttachmentPreview(a.file.name, a.file.type, a.previewUrl)}
+                  </div>
+                  <button type="button" onClick={() => setPendingAttachments((c) => c.filter((item) => item.id !== a.id))} className="text-xs text-red-600 hover:underline">Remove</button>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -384,7 +480,7 @@ export default function IdeaForm({
         disabled={isPending}
         className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isPending ? 'Saving…' : submitLabel}
+        {isPending ? 'SavingΓÇª' : submitLabel}
       </button>
     </form>
   )

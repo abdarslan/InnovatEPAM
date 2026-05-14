@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { getIdeaDetailAction } from '@/actions/ideas'
-import type { IdeaListItem, IdeaDetail } from '@/actions/ideas'
+import type { IdeaAttachmentMeta, IdeaListItem, IdeaDetail } from '@/actions/ideas'
 import type { IdeaCategory } from '@/lib/db/schema'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/ideas/StatusBadge'
@@ -46,6 +46,30 @@ function formatDynamicFieldLabel(fieldKey: string) {
     .join(' ')
 }
 
+function renderAttachmentPreview(ideaId: number, attachment: IdeaAttachmentMeta) {
+  const previewUrl = `/api/ideas/${ideaId}/attachments/${attachment.id}`
+  if (!attachment.previewEligible) {
+    return <p className="text-xs text-[--color-text-muted]">Preview not available for this file type.</p>
+  }
+  if (attachment.mimeType.startsWith('image/')) {
+    return <img src={previewUrl} alt={attachment.originalName} className="max-h-40 rounded-md border border-[--color-border] object-cover" />
+  }
+  if (attachment.mimeType.startsWith('audio/')) {
+    return <audio controls src={previewUrl} className="w-full" />
+  }
+  if (attachment.mimeType.startsWith('video/')) {
+    return <video controls src={previewUrl} className="max-h-48 w-full rounded-md border border-[--color-border]" />
+  }
+  if (attachment.mimeType === 'application/pdf') {
+    return <iframe src={previewUrl} title={attachment.originalName} className="h-48 w-full rounded-md border border-[--color-border]" />
+  }
+  return <p className="text-xs text-[--color-text-muted]">Preview not available for this file type.</p>
+}
+
+function attachmentLabel(count: number) {
+  return count === 1 ? '1 attachment' : `${count} attachments`
+}
+
 export default function IdeaRow({ idea, currentUserId, currentUserRole, onDeleted }: IdeaRowProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [detail, setDetail] = useState<IdeaDetail | null>(null)
@@ -85,12 +109,12 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                 {CATEGORY_LABELS[idea.category]}
               </span>
               <span>{idea.submitterName}</span>
-              <span>·</span>
+              <span>┬╖</span>
               <span>{formatDate(idea.createdAt)}</span>
               {idea.hasAttachment && (
                 <>
-                  <span>·</span>
-                  <span className="text-[--color-info]">📎 attachment</span>
+                  <span>┬╖</span>
+                  <span className="text-[--color-info]">{attachmentLabel(idea.attachmentCount)}</span>
                 </>
               )}
             </div>
@@ -98,7 +122,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
           <div className="ml-3 flex items-center gap-2 shrink-0">
             <StatusBadge status={idea.status} />
             <span className="text-[--color-text-muted]" aria-hidden="true">
-              {isOpen ? '▲' : '▼'}
+              {isOpen ? 'Γû▓' : 'Γû╝'}
             </span>
           </div>
         </CollapsibleTrigger>
@@ -108,7 +132,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
           <div className="border-t border-[--color-border] px-4 py-4 space-y-4">
             {isLoading && (
               <p className="text-sm text-[--color-text-muted]" aria-live="polite">
-                Loading…
+                LoadingΓÇª
               </p>
             )}
             {loadError && (
@@ -150,16 +174,50 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
 
                 {detail.attachmentName && (
                   <div>
-                    <a
-                      href={`/api/ideas/${idea.id}/attachment`}
-                      download={detail.attachmentName}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-text] hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      ⬇ {detail.attachmentName}
-                      {detail.attachmentSize !== null && (
-                        <span className="text-[--color-text-muted]">({formatBytes(detail.attachmentSize)})</span>
-                      )}
-                    </a>
+                    {detail.attachments && detail.attachments.length > 0 ? (
+                      <div className="space-y-3">
+                        {detail.attachments.map((attachment) => (
+                          <div key={attachment.id} className="rounded-md border border-[--color-border] p-3">
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium text-[--color-text]">{attachment.originalName}</p>
+                                <p className="text-xs text-[--color-text-muted]">
+                                  {attachment.mimeType} · {formatBytes(attachment.sizeBytes)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs">
+                                <a
+                                  href={`/api/ideas/${idea.id}/attachments/${attachment.id}`}
+                                  className="text-[--color-primary] hover:underline"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Open
+                                </a>
+                                <a
+                                  href={`/api/ideas/${idea.id}/attachments/${attachment.id}?download=1`}
+                                  className="text-[--color-text] hover:underline"
+                                >
+                                  Download
+                                </a>
+                              </div>
+                            </div>
+                            {renderAttachmentPreview(idea.id, attachment)}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <a
+                        href={`/api/ideas/${idea.id}/attachment`}
+                        download={detail.attachmentName}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-text] hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        ⬇ {detail.attachmentName}
+                        {detail.attachmentSize !== null && (
+                          <span className="text-[--color-text-muted]">({formatBytes(detail.attachmentSize)})</span>
+                        )}
+                      </a>
+                    )}
                   </div>
                 )}
 

@@ -1,94 +1,117 @@
-# Research: Idea Submission System
+# Research: Idea Submission System (Multi-attachment + Multimedia Preview)
 
 **Feature**: `002-idea-submission`
 **Date**: 2026-05-14
 **Branch**: `002-idea-submission`
 
-All NEEDS CLARIFICATION items and key unknowns from the Technical Context are resolved below.
+All planning unknowns from the updated spec are resolved below.
 
 ---
 
-## Decision 1: File Attachment Storage Strategy
+## Decision 1: Attachment Storage Model
 
-**Decision**: Store file content as a SQLite BLOB (`blob('content', { mode: 'buffer' })`) in the `ideas` table alongside the idea record.
+**Decision**: Move from inline single-file columns on `ideas` to a dedicated `idea_attachments` table (`ideas` 1:N `idea_attachments`), keeping binary content in SQLite BLOB columns.
 
 **Rationale**:
-- FR-019 mandates atomic submission — if either the file or the idea record fails to save, the entire submission must be rolled back. Storing both in the same SQLite row and transaction guarantees this atomicity with no additional coordination logic.
-- The 5 MB file size cap keeps the maximum BLOB size within SQLite's acceptable range (SQLite handles BLOBs up to its page-size limit, effectively several GB).
-- No new infrastructure or dependencies are required — `blob()` is available in `drizzle-orm/sqlite-core` (already a project dependency).
-- Avoids the two-phase problem of filesystem + DB: no orphaned files on disk if the DB transaction fails.
+- Multi-file support (up to 5 attachments) is naturally represented as 1:N rows.
+- Transactional rollback required by FR-019 remains straightforward: insert/update idea and attachment rows in one DB transaction.
+- No new storage service or dependency is introduced.
+- Attachment-level operations (preview, download, remove individual files) become simpler and safer.
 
 **Alternatives considered**:
-- **Filesystem storage** (`data/uploads/{uuid}.ext` + path in DB): Better read performance for large files, but atomicity requires manual cleanup of the written file on DB failure. Adds complexity and risk of orphaned files.
-- **External object storage** (S3, R2): Appropriate at scale but introduces a new service dependency, violating Constitution Principle III.
+- **Keep multiple attachment columns on `ideas`**: Does not scale cleanly and creates brittle schema evolution.
+- **Filesystem/object storage references**: Adds infrastructure and orphan cleanup complexity.
 
 ---
 
-## Decision 2: Next.js 15 Server Action File Upload Pattern
+## Decision 2: Upload Payload Contract
 
-**Decision**: Use `FormData` natively in Server Actions. Read the `File` object with `formData.get('file')` and convert to a Node.js `Buffer` via `Buffer.from(await file.arrayBuffer())`.
+**Decision**: Continue using Server Action `FormData`, but switch to repeated attachment fields (`attachments`) and explicit remove semantics for edit (`removeAttachmentIds`).
 
 **Rationale**:
-- Next.js 15 App Router Server Actions receive `FormData` natively — no `multipart` parsing library is needed.
-- `File` (the Web API `Blob` subclass) is available in the Server Action environment. `arrayBuffer()` returns the raw bytes which can be stored as a SQLite BLOB buffer.
-- Zero new dependencies. Pattern is consistent with the existing `'use server'` action conventions in `actions/auth.ts`.
+- Native App Router FormData support already exists in the codebase.
+- Repeated field names are a standard browser-native mechanism for multi-file uploads.
+- Avoids JSON/base64 payload inflation and retains good browser compatibility.
 
 **Alternatives considered**:
-- **`multer` / `formidable`**: Not applicable to Server Actions — these are Express-era middleware incompatible with App Router.
-- **`next-connect`**: Unnecessary complexity.
+- **JSON API with base64 payloads**: Higher payload overhead and unnecessary complexity.
+- **Third-party multipart libraries**: Not needed for Server Actions and violates minimal dependency principle.
 
 ---
 
-## Decision 3: Expandable Row / Drawer in Idea Listing
+## Decision 3: Preview + Download Delivery Contract
 
-**Decision**: Use the `shadcn/ui` **Collapsible** component (`@radix-ui/react-collapsible`) to toggle full idea content within each listing row.
+**Decision**: Expose per-attachment authenticated route `GET /api/ideas/[id]/attachments/[attachmentId]` with optional `?download=1`; default response is inline for preview-supported types and attachment disposition for others.
 
 **Rationale**:
-- `Collapsible` is already part of the shadcn/ui library available in this project. Install via `npx shadcn@latest add collapsible` — no external dep addition required beyond what shadcn's registry manages.
-- Provides keyboard-accessible expand/collapse with WAI-ARIA `aria-expanded` out of the box (Constitution Principle IV compliance).
-- Lighter than a modal/drawer: content stays inline in the list, preserving spatial context for the user.
+- Supports both inline preview and explicit download without duplicating endpoints.
+- Attachment ID addressing is required in a multi-file model.
+- Aligns with FR-011 by enforcing auth for all preview/download surfaces.
 
 **Alternatives considered**:
-- **shadcn/ui Accordion**: Semantically implies a group where only one item is open at a time. `Collapsible` is the correct primitive for independent row toggles.
-- **Custom CSS `details`/`summary`**: Valid HTML semantic, but loses the design system consistency of shadcn/ui.
+- **Single legacy route (`/attachment`)**: Ambiguous in multi-file scenarios.
+- **Separate preview and download endpoints**: More route surface with little benefit.
 
 ---
 
-## Decision 4: File Download API Route
+## Decision 4: Validation and Limits
 
-**Decision**: Expose a dedicated Next.js API route at `app/api/ideas/[id]/attachment/route.ts` (GET) that reads the BLOB from the DB and streams it as an `application/octet-stream` (or the stored MIME type) `Response`.
+**Decision**: Validate constraints server-side with Zod + procedural checks:
+- count <= 5
+- per-file size <= 10 MB
+- aggregate size <= 25 MB
+- MIME allowlist per spec
 
 **Rationale**:
-- Server Actions cannot return file `Response` objects — they return serialisable data only.
-- A `route.ts` GET handler can return `new Response(buffer, { headers: { 'Content-Type', 'Content-Disposition' } })` natively in Next.js 15 App Router with no new deps.
-- The route enforces authentication (via `requireAuth()`) before serving any attachment, preventing unauthenticated file access.
+- Keeps authoritative enforcement server-side regardless of client behavior.
+- Procedural aggregate checks complement schema-level single-file checks.
+- Preserves existing validation architecture.
 
 **Alternatives considered**:
-- **Serve via `public/` static folder**: Not viable for dynamic, permission-controlled binary content.
-- **Base64 encode in JSON response**: Inflates payload size by ~33%, complicates client streaming.
+- **Client-only enforcement**: Not trustworthy.
+- **MIME sniffing package**: More robust but adds dependency not required for this scope.
 
 ---
 
-## Decision 5: Zod Validation for File Fields
+## Decision 5: Post-submission Attachment Editing
 
-**Decision**: Validate file MIME type and size using `z.custom<File>()` with `.refine()` predicates in a new `lib/ideas/validation.ts` module.
+**Decision**: Owners may add/upload/delete individual attachments after submission while they retain edit permissions on their own ideas.
 
 **Rationale**:
-- Zod 4 is already a project dependency. `z.custom<File>()` accepts a native `File` object and `.refine()` allows arbitrary async/sync predicates for MIME type check and byte-length check.
-- Keeps validation co-located with the schema pattern established in `lib/auth/validation.ts`.
-- MIME type checking on both client (file picker `accept` attribute) and server (Zod refine) provides defense-in-depth.
+- Matches latest clarification and keeps evaluation workflow out of scope.
+- Avoids coupling this feature to downstream review states.
+- Provides clear, testable owner-centric behavior.
 
 **Alternatives considered**:
-- **`file-type` npm package**: More robust MIME detection (magic bytes), but adds a new dependency. Acceptable for v2 when upload volume justifies it.
+- **Attachment lock after a later workflow state**: Out of scope for this spec.
+- **Full-set replacement only**: Worse UX and unnecessary data churn.
+
+---
+
+## Decision 6: Documentation Freshness Gate Handling
+
+**Decision**: Proceed with in-repo locked versions and documented risk note because Context7 calls failed with API key auth error in this environment.
+
+**Rationale**:
+- Constitution permits proceeding with explicit risk and follow-up when Context7 is unavailable.
+- Repository package versions (`next` 15.5.18, `drizzle-orm` 0.45.2) are known and stable in current project context.
+
+**Alternatives considered**:
+- **Block planning until Context7 restored**: Unnecessary delivery delay for a bounded update.
+
+### Implementation Follow-up
+
+- Re-run Context7 verification for Next.js App Router file handling and Drizzle relation/migration guidance before merging, once valid credentials are available.
 
 ---
 
 ## Summary Table
 
 | Unknown | Decision | Alternatives Rejected |
-|---------|----------|-----------------------|
-| File storage mechanism | SQLite BLOB in `ideas` table | Filesystem (atomicity risk), S3/R2 (new service) |
-| File upload in Server Action | Native `FormData.get('file')` → `Buffer.from(arrayBuffer())` | multer/formidable (Express-only), next-connect (overkill) |
-| Expandable row component | shadcn/ui `Collapsible` | Accordion (wrong semantic), `details`/`summary` (breaks design system) |
-| File download delivery | Authenticated `GET /api/ideas/[id]/attachment` route | `public/` static (no auth), base64 JSON (overhead) |
-| File field validation | Zod `z.custom<File>().refine()` | `file-type` package (new dep), manual checks (scattered) |
+|---|---|---|
+| Multi-file schema shape | Normalize to `idea_attachments` table | Repeating columns, external storage pointers |
+| Upload payload format | Repeated FormData `attachments` fields | Base64 JSON, multipart libs |
+| Preview/download endpoint | Authenticated per-attachment route with optional `download` mode | Legacy single route only, split preview/download routes |
+| Validation approach | Server-side count/size/type/aggregate enforcement | Client-only validation, new MIME lib |
+| Post-submission attachment edits | Owner add/remove allowed with existing edit permission | Workflow-state lock, whole-set replacement |
+| Freshness gate constraint | Proceed with risk note due Context7 auth failure | Hard block on plan generation |

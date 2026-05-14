@@ -1,4 +1,4 @@
-# Data Model: Idea Submission System
+# Data Model: Idea Submission System (Multi-attachment)
 
 **Feature**: `002-idea-submission`
 **Date**: 2026-05-14
@@ -10,32 +10,34 @@
 
 ### `ideas`
 
-Represents a submitted innovation idea. Attachment metadata and content are stored inline to guarantee atomic save/rollback (FR-019).
+Represents the primary submitted idea record.
 
-| Column | SQLite Type | Drizzle | Nullable | Notes |
-|--------|-------------|---------|----------|-------|
-| `id` | `INTEGER` | `integer().primaryKey({ autoIncrement: true })` | No | Surrogate PK |
-| `title` | `TEXT` | `text().notNull()` | No | Max 255 chars (enforced via Zod) |
-| `description` | `TEXT` | `text().notNull()` | No | Free-form text |
-| `category` | `TEXT` | `text({ enum: CATEGORIES }).notNull()` | No | One of 5 predefined values |
-| `submitter_id` | `INTEGER` | `integer().notNull().references(() => users.id)` | No | FK → `users.id` |
-| `attachment_name` | `TEXT` | `text()` | Yes | Original filename |
-| `attachment_size` | `INTEGER` | `integer()` | Yes | Byte length |
-| `attachment_mime_type` | `TEXT` | `text()` | Yes | MIME type string |
-| `attachment_content` | `BLOB` | `blob('attachment_content', { mode: 'buffer' })` | Yes | Raw file bytes |
-| `created_at` | `INTEGER` | `integer().notNull()` | No | Unix timestamp ms (`Date.now()`) |
-| `updated_at` | `INTEGER` | `integer().notNull()` | No | Unix timestamp ms; updated on edit |
+| Column | SQLite Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | `INTEGER` | No | PK, auto increment |
+| `title` | `TEXT` | No | 3-255 chars (validated) |
+| `description` | `TEXT` | No | 10-5000 chars (validated) |
+| `category` | `TEXT` | No | Enum from `IDEA_CATEGORIES` |
+| `submitter_id` | `INTEGER` | No | FK -> `users.id` |
+| `created_at` | `INTEGER` | No | Unix ms timestamp |
+| `updated_at` | `INTEGER` | No | Unix ms timestamp |
 
-**Invariants**:
-- All four `attachment_*` columns are always either all `NULL` (no attachment) or all non-`NULL` (attachment present). No partial attachment state is allowed.
-- `category` must be one of the 5 canonical enum values.
-- `submitter_id` references a row in `users` (FK constraint).
+### `idea_attachments`
 
----
+Stores one row per attachment linked to an idea.
+
+| Column | SQLite Type | Nullable | Notes |
+|---|---|---|---|
+| `id` | `INTEGER` | No | PK, auto increment |
+| `idea_id` | `INTEGER` | No | FK -> `ideas.id` (cascade delete) |
+| `original_name` | `TEXT` | No | File name from upload |
+| `mime_type` | `TEXT` | No | Validated allowlist |
+| `size_bytes` | `INTEGER` | No | Must satisfy size limits |
+| `preview_eligible` | `INTEGER` | No | 0/1 flag derived from MIME support |
+| `content` | `BLOB` | No | Raw bytes |
+| `created_at` | `INTEGER` | No | Unix ms timestamp |
 
 ### Category Enum
-
-Stored as `text` with a Drizzle enum constraint. The TypeScript union type mirrors these values.
 
 | Stored value | Display label |
 |---|---|
@@ -49,83 +51,77 @@ Stored as `text` with a Drizzle enum constraint. The TypeScript union type mirro
 
 ## Relationships
 
+```text
+users (1) ----< ideas (N)
+ideas (1) ----< idea_attachments (N)
 ```
-users (1) ──────< ideas (N)
-  id                submitter_id
-```
 
-- One `user` may submit zero or many `ideas`.
-- Each `idea` belongs to exactly one `user` (the submitter).
-- No junction tables required in v1.
-
----
-
-## Drizzle Schema (reference)
-
-```typescript
-// lib/db/schema.ts (additions)
-
-import { integer, sqliteTable, text, blob } from 'drizzle-orm/sqlite-core'
-
-export const IDEA_CATEGORIES = [
-  'process_improvement',
-  'technology_innovation',
-  'customer_experience',
-  'workplace_culture',
-  'cost_reduction',
-] as const
-
-export type IdeaCategory = typeof IDEA_CATEGORIES[number]
-
-export const ideas = sqliteTable('ideas', {
-  id:                  integer('id').primaryKey({ autoIncrement: true }),
-  title:               text('title').notNull(),
-  description:         text('description').notNull(),
-  category:            text('category', { enum: IDEA_CATEGORIES }).notNull(),
-  submitterId:         integer('submitter_id').notNull().references(() => users.id),
-  attachmentName:      text('attachment_name'),
-  attachmentSize:      integer('attachment_size'),
-  attachmentMimeType:  text('attachment_mime_type'),
-  attachmentContent:   blob('attachment_content', { mode: 'buffer' }),
-  createdAt:           integer('created_at').notNull(),
-  updatedAt:           integer('updated_at').notNull(),
-})
-
-export type Idea    = typeof ideas.$inferSelect
-export type NewIdea = typeof ideas.$inferInsert
-```
+- One user submits many ideas.
+- One idea owns zero to five attachments.
+- Deleting an idea removes related attachments.
 
 ---
 
 ## Validation Rules
 
-Enforced by Zod schemas in `lib/ideas/validation.ts`.
-
-| Field | Rule |
-|-------|------|
-| `title` | Required; 3–255 characters after trim |
-| `description` | Required; 10–5000 characters after trim |
-| `category` | Required; must be one of `IDEA_CATEGORIES` |
-| `attachment` (file) | Optional; if present: size ≤ 5,242,880 bytes (5 MB); MIME type in `['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/png', 'image/jpeg']` |
+| Rule | Constraint |
+|---|---|
+| Title | Required, trimmed, 3-255 chars |
+| Description | Required, trimmed, 10-5000 chars |
+| Category | Required enum |
+| Attachment count | 0-5 per idea |
+| Per-file size | <= 10 MB |
+| Aggregate size | <= 25 MB |
+| MIME type | Must be in approved allowlist |
+| Preview metadata | `preview_eligible` derived from MIME (`image/*`, `audio/*`, `video/*`, `application/pdf`) |
 
 ---
 
 ## State Transitions
 
-Ideas are mutable in v1 (submitter can edit/delete; admin can delete). No formal approval workflow — all ideas are immediately visible.
-
+```text
+[Submitted] --edit fields--> [Updated]
+[Submitted] --add/remove attachments--> [Updated]
+[Updated] --add/remove attachments--> [Updated]
+[Submitted|Updated] --delete (owner/admin)--> [Deleted]
 ```
-[Submitted] ──edit──> [Updated]
-[Submitted] ──delete (submitter or admin)──> [Deleted / removed]
-[Updated]   ──delete (submitter or admin)──> [Deleted / removed]
-```
 
-Deletion is a hard delete — row is removed from the `ideas` table. No soft-delete or audit trail in v1.
+Notes:
+- Attachment add/remove operations are part of standard owner edit capability.
+- No review-state lifecycle is modeled in this spec.
 
 ---
 
-## Migration
+## Migration Plan
 
-A single Drizzle migration adds the `ideas` table. No changes to the `users` table are required.
+1. Create `idea_attachments` table and indexes (`idea_id`, `created_at`).
+2. Backfill existing single attachment columns (if present) into one `idea_attachments` row per idea.
+3. Remove legacy single-attachment columns from `ideas` after data migration.
 
-**Migration file**: `lib/db/migrations/0001_add_ideas_table.sql`
+**Planned migration file**: `lib/db/migrations/0002_ideas_multi_attachments.sql`
+
+---
+
+## Action-layer DTO Shape
+
+```typescript
+type IdeaAttachmentMeta = {
+  id: number
+  originalName: string
+  mimeType: string
+  sizeBytes: number
+  previewEligible: boolean
+}
+
+type IdeaDetail = {
+  id: number
+  title: string
+  description: string
+  category: IdeaCategory
+  submitterId: number
+  submitterName: string
+  attachments: IdeaAttachmentMeta[]
+  createdAt: number
+  updatedAt: number
+}
+```
