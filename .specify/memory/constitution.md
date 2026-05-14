@@ -1,6 +1,6 @@
 <!--
   SYNC IMPACT REPORT
-  Version change: 1.0.0 → 1.1.0
+  Version change: 1.0.0 → 1.1.1
   Modified principles: None
   Added sections:
     - VI. Architecture Decision Records (new principle)
@@ -12,6 +12,15 @@
 -->
 
 # InnovatEPAM Constitution
+
+## Preamble
+
+InnovatEPAM Portal is a comprehensive digital platform designed to streamline
+the innovation process within EPAM, enabling employees to submit creative ideas,
+facilitating expert evaluation, and managing the implementation of top-tier
+innovations with dedicated budget allocation.
+
+This constitution governs all development decisions for this platform.
 
 ## Core Principles
 
@@ -102,4 +111,4 @@ This constitution supersedes all informal conventions and individual preferences
 - Complexity MUST be justified in PR description; unexplained complexity is grounds for rejection.
 - Ratified principles are binding from the moment they appear in this file at version ≥ 1.0.0.
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-14
+**Version**: 1.1.1 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-14
