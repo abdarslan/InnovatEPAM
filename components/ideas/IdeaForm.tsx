@@ -166,7 +166,7 @@ export default function IdeaForm({
             const file = e.target.files?.[0]
             setSelectedFileName(file ? file.name : null)
           }}
-          className="block w-full text-sm text-[--color-text-muted] file:mr-3 file:rounded-md file:border-0 file:bg-[--color-primary] file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:cursor-pointer"
+          className="block w-full text-sm text-[--color-text-muted] file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:cursor-pointer"
         />
         <p id="attachment-hint" className="text-xs text-[--color-text-muted]">
           {selectedFileName ? `Selected: ${selectedFileName}` : 'No file selected.'}
@@ -181,7 +181,7 @@ export default function IdeaForm({
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-[--color-primary] px-5 py-2 text-sm font-medium text-white hover:bg-[--color-primary-dark] disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isPending ? 'Saving…' : submitLabel}
       </button>

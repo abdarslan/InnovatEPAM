@@ -65,13 +65,13 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
       <div className="rounded-lg border border-[--color-border] bg-white">
         {/* Row header */}
         <CollapsibleTrigger
-          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-[--color-surface] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-primary] rounded-lg"
+          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
           aria-expanded={isOpen}
         >
           <div className="flex flex-col gap-0.5 min-w-0">
             <span className="truncate font-medium text-[--color-text]">{idea.title}</span>
             <div className="flex items-center gap-2 text-xs text-[--color-text-muted]">
-              <span className="rounded bg-[--color-surface] px-1.5 py-0.5 border border-[--color-border]">
+              <span className="rounded bg-surface px-1.5 py-0.5 border border-[--color-border]">
                 {CATEGORY_LABELS[idea.category]}
               </span>
               <span>{idea.submitterName}</span>
@@ -112,7 +112,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                     <a
                       href={`/api/ideas/${idea.id}/attachment`}
                       download={detail.attachmentName}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-text] hover:bg-[--color-surface] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--color-primary]"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-text] hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       ⬇ {detail.attachmentName}
                       {detail.attachmentSize !== null && (

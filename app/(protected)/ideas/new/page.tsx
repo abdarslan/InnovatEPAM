@@ -23,13 +23,13 @@ export default function NewIdeaPage() {
         <div className="flex gap-4">
           <Link
             href="/ideas"
-            className="rounded-md bg-[--color-primary] px-4 py-2 text-sm font-medium text-white hover:bg-[--color-primary-dark]"
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark"
           >
             View all ideas
           </Link>
           <button
             onClick={() => setSuccessId(null)}
-            className="rounded-md border border-[--color-border] px-4 py-2 text-sm text-[--color-text] hover:bg-[--color-surface]"
+            className="rounded-md border border-[--color-border] px-4 py-2 text-sm text-[--color-text] hover:bg-surface"
           >
             Submit another idea
           </button>

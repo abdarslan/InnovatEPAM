@@ -20,7 +20,7 @@ export default function LogoutButton() {
     <button
       onClick={handleLogout}
       disabled={isPending}
-      className="rounded-md border border-[--color-border] px-3 py-1.5 text-sm text-[--color-text] hover:bg-[--color-surface] disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
+      className="rounded-md border border-[--color-border] px-3 py-1.5 text-sm text-[--color-text] hover:bg-surface disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary"
       aria-label="Log out"
     >
       {isPending ? 'Logging out…' : 'Logout'}

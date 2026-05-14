@@ -15,7 +15,7 @@ export default async function AccessDeniedPage() {
       </div>
       <Link
         href={backHref}
-        className="rounded-md bg-[--color-primary] px-4 py-2 text-sm font-medium text-white hover:bg-[--color-primary-dark] focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
+        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary"
       >
         Back to Dashboard
       </Link>
