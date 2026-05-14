@@ -19,15 +19,15 @@
 
 **Purpose**: Project initialization, toolchain, and directory scaffolding
 
-- [ ] T001 Initialize Next.js 15 App Router TypeScript project with root layout in app/layout.tsx and app/page.tsx
-- [ ] T002 Add runtime dependencies in package.json: drizzle-orm, better-sqlite3, iron-session, bcryptjs, zod, react-hook-form, @hookform/resolvers, date-fns
-- [ ] T003 Add development dependencies in package.json: drizzle-kit, @types/better-sqlite3, @types/bcryptjs, vitest, @vitejs/plugin-react, @testing-library/react, @testing-library/user-event, jsdom, playwright, @playwright/test, tsx
-- [ ] T004 Configure TypeScript strict mode (`"strict": true`) and `@/*` path alias in tsconfig.json
-- [ ] T005 Configure Tailwind CSS v4 with `@import "tailwindcss"` and `@theme { }` design tokens in app/globals.css
-- [ ] T006 Configure PostCSS plugin for Tailwind v4 in postcss.config.mjs
-- [ ] T007 Initialize shadcn/ui with Tailwind v4 support in components.json
-- [ ] T008 [P] Create test directory scaffolding: tests/integration/auth/.gitkeep and tests/e2e/.gitkeep
-- [ ] T009 [P] Create SQLite runtime directory placeholder in data/.gitkeep
+- [X] T001 Initialize Next.js 15 App Router TypeScript project with root layout in app/layout.tsx and app/page.tsx
+- [X] T002 Add runtime dependencies in package.json: drizzle-orm, better-sqlite3, iron-session, bcryptjs, zod, react-hook-form, @hookform/resolvers, date-fns
+- [X] T003 Add development dependencies in package.json: drizzle-kit, @types/better-sqlite3, @types/bcryptjs, vitest, @vitejs/plugin-react, @testing-library/react, @testing-library/user-event, jsdom, playwright, @playwright/test, tsx
+- [X] T004 Configure TypeScript strict mode (`"strict": true`) and `@/*` path alias in tsconfig.json
+- [X] T005 Configure Tailwind CSS v4 with `@import "tailwindcss"` and `@theme { }` design tokens in app/globals.css
+- [X] T006 Configure PostCSS plugin for Tailwind v4 in postcss.config.mjs
+- [X] T007 Initialize shadcn/ui with Tailwind v4 support in components.json
+- [X] T008 [P] Create test directory scaffolding: tests/integration/auth/.gitkeep and tests/e2e/.gitkeep
+- [X] T009 [P] Create SQLite runtime directory placeholder in data/.gitkeep
 
 **Checkpoint**: Toolchain installed and configured. Ready for foundational work.
 
@@ -39,19 +39,19 @@
 
 **⚠️ CRITICAL**: Complete this phase entirely before any user story work begins.
 
-- [ ] T010 Define `users` table schema (id, email, displayName, passwordHash, role, status, failedAttempts, lockedUntil, createdAt) with Drizzle and inferred TypeScript types in lib/db/schema.ts
-- [ ] T011 Generate and commit initial Drizzle migration for the users table in lib/db/migrations/0001_init_auth.sql (run `npx drizzle-kit generate`)
-- [ ] T012 Create Drizzle `better-sqlite3` client singleton with DATABASE_URL env wiring in lib/db/index.ts
-- [ ] T013 Implement admin account seed script using upsert (idempotent) via `npm run db:seed` in lib/db/seed.ts
-- [ ] T014 [P] Create shared Zod schemas `registerSchema` and `loginSchema` (shared client + server) in lib/auth/validation.ts
-- [ ] T015 [P] Implement `hashPassword` and `verifyPassword` helpers using bcryptjs work factor 12 in lib/auth/password.ts
-- [ ] T016 Implement iron-session config (`ttl: 8*60*60`), `SessionData` interface, `getSession()`, `requireAuth()`, and `requireRole()` helpers in lib/auth/session.ts
-- [ ] T017 Implement baseline Next.js middleware: protect all `/(protected)` routes, redirect unauthenticated users to `/login?returnUrl=...`, pass through `/(auth)` routes in middleware.ts
-- [ ] T018 [P] Create root error boundary in app/error.tsx and global 404 boundary in app/not-found.tsx
-- [ ] T019 Create authenticated shell layout with nav placeholder and session guard in app/(protected)/layout.tsx
-- [ ] T020 [P] Configure Vitest with jsdom environment, React Testing Library setup file, and `@/*` alias in vitest.config.ts and tests/setup.ts
-- [ ] T021 [P] Configure Playwright with baseURL, test directory, and local dev server in playwright.config.ts
-- [ ] T022 [P] Add environment variable template with DATABASE_URL, SESSION_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_DISPLAY_NAME in .env.example
+- [X] T010 Define `users` table schema (id, email, displayName, passwordHash, role, status, failedAttempts, lockedUntil, createdAt) with Drizzle and inferred TypeScript types in lib/db/schema.ts
+- [X] T011 Generate and commit initial Drizzle migration for the users table in lib/db/migrations/0001_init_auth.sql (run `npx drizzle-kit generate`)
+- [X] T012 Create Drizzle `better-sqlite3` client singleton with DATABASE_URL env wiring in lib/db/index.ts
+- [X] T013 Implement admin account seed script using upsert (idempotent) via `npm run db:seed` in lib/db/seed.ts
+- [X] T014 [P] Create shared Zod schemas `registerSchema` and `loginSchema` (shared client + server) in lib/auth/validation.ts
+- [X] T015 [P] Implement `hashPassword` and `verifyPassword` helpers using bcryptjs work factor 12 in lib/auth/password.ts
+- [X] T016 Implement iron-session config (`ttl: 8*60*60`), `SessionData` interface, `getSession()`, `requireAuth()`, and `requireRole()` helpers in lib/auth/session.ts
+- [X] T017 Implement baseline Next.js middleware: protect all `/(protected)` routes, redirect unauthenticated users to `/login?returnUrl=...`, pass through `/(auth)` routes in middleware.ts
+- [X] T018 [P] Create root error boundary in app/error.tsx and global 404 boundary in app/not-found.tsx
+- [X] T019 Create authenticated shell layout with nav placeholder and session guard in app/(protected)/layout.tsx
+- [X] T020 [P] Configure Vitest with jsdom environment, React Testing Library setup file, and `@/*` alias in vitest.config.ts and tests/setup.ts
+- [X] T021 [P] Configure Playwright with baseURL, test directory, and local dev server in playwright.config.ts
+- [X] T022 [P] Add environment variable template with DATABASE_URL, SESSION_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_DISPLAY_NAME in .env.example
 
 **Checkpoint**: Schema migrated, auth helpers ready, middleware baseline active. User story phases can begin.
 
@@ -65,17 +65,17 @@
 
 ### Tests — User Story 1
 
-- [ ] T023 [P] [US1] Write component tests for RegisterForm field validation, domain rejection, and password policy errors in components/auth/RegisterForm.test.tsx
-- [ ] T024 [P] [US1] Write integration tests for registerAction: success path, duplicate email, non-EPAM domain, password policy violation — against real SQLite test DB in tests/integration/auth/register.test.ts
-- [ ] T025 [P] [US1] Write Playwright E2E test for the full registration journey in tests/e2e/registration-flow.spec.ts
+- [X] T023 [P] [US1] Write component tests for RegisterForm field validation, domain rejection, and password policy errors in components/auth/RegisterForm.test.tsx
+- [X] T024 [P] [US1] Write integration tests for registerAction: success path, duplicate email, non-EPAM domain, password policy violation — against real SQLite test DB in tests/integration/auth/register.test.ts
+- [X] T025 [P] [US1] Write Playwright E2E test for the full registration journey in tests/e2e/registration-flow.spec.ts
 
 ### Implementation — User Story 1
 
-- [ ] T026 [US1] Implement `registerAction` in actions/auth.ts: validate input, hash password, insert user, create iron-session cookie, return `{ ok: true, data: { userId } }`
-- [ ] T027 [US1] Build `RegisterForm` client component with react-hook-form + registerSchema, inline field errors, and loading state during submission in components/auth/RegisterForm.tsx
-- [ ] T028 [US1] Create registration RSC page that renders RegisterForm and redirects authenticated users to their dashboard in app/(auth)/register/page.tsx
-- [ ] T029 [US1] Create submitter dashboard page displaying `displayName` and role label in app/(protected)/dashboard/page.tsx
-- [ ] T030 [US1] Create unauthenticated shell layout with login/register navigation links in app/(auth)/layout.tsx
+- [X] T026 [US1] Implement `registerAction` in actions/auth.ts: validate input, hash password, insert user, create iron-session cookie, return `{ ok: true, data: { userId } }`
+- [X] T027 [US1] Build `RegisterForm` client component with react-hook-form + registerSchema, inline field errors, and loading state during submission in components/auth/RegisterForm.tsx
+- [X] T028 [US1] Create registration RSC page that renders RegisterForm and redirects authenticated users to their dashboard in app/(auth)/register/page.tsx
+- [X] T029 [US1] Create submitter dashboard page displaying `displayName` and role label in app/(protected)/dashboard/page.tsx
+- [X] T030 [US1] Create unauthenticated shell layout with login/register navigation links in app/(auth)/layout.tsx
 
 **Checkpoint**: US1 fully functional and independently testable — registration creates an account and lands on the submitter dashboard.
 
@@ -89,18 +89,18 @@
 
 ### Tests — User Story 2
 
-- [ ] T031 [P] [US2] Write component tests for LoginForm: field validation, error display, submit-button disabled during pending state in components/auth/LoginForm.test.tsx
-- [ ] T032 [P] [US2] Write integration tests for loginAction: success, wrong password, lockout counter, lockout expiry, inactive user, session creation and reset in tests/integration/auth/login.test.ts
-- [ ] T033 [P] [US2] Write Playwright E2E test for login, logout, and lockout flows in tests/e2e/login-flow.spec.ts
+- [X] T031 [P] [US2] Write component tests for LoginForm: field validation, error display, submit-button disabled during pending state in components/auth/LoginForm.test.tsx
+- [X] T032 [P] [US2] Write integration tests for loginAction: success, wrong password, lockout counter, lockout expiry, inactive user, session creation and reset in tests/integration/auth/login.test.ts
+- [X] T033 [P] [US2] Write Playwright E2E test for login, logout, and lockout flows in tests/e2e/login-flow.spec.ts
 
 ### Implementation — User Story 2
 
-- [ ] T034 [US2] Implement `loginAction` in actions/auth.ts: check lockout (`lockedUntil > Date.now()`), check inactive status, verify bcrypt, increment/reset `failedAttempts`, set `lockedUntil` on 5th failure, write iron-session, return role; lockout error message uses date-fns `formatDistanceToNow` for human-readable remaining time
-- [ ] T035 [US2] Implement `logoutAction` in actions/auth.ts: destroy iron-session cookie and return `{ ok: true }`
-- [ ] T036 [US2] Build `LoginForm` client component with react-hook-form + loginSchema, server action wiring, inline error display, and submit button disabled + loading spinner while request is in-flight in components/auth/LoginForm.tsx
-- [ ] T037 [US2] Create login RSC page that reads `?reason=session_expired` and displays a visible info banner when present; renders LoginForm; redirects authenticated users to their dashboard in app/(auth)/login/page.tsx
-- [ ] T038 [US2] Create reusable `LogoutButton` client component that calls `logoutAction` and redirects to `/login` in components/auth/LogoutButton.tsx
-- [ ] T039 [US2] Wire `LogoutButton` and session-aware display name into the authenticated shell nav in app/(protected)/layout.tsx
+- [X] T034 [US2] Implement `loginAction` in actions/auth.ts: check lockout (`lockedUntil > Date.now()`), check inactive status, verify bcrypt, increment/reset `failedAttempts`, set `lockedUntil` on 5th failure, write iron-session, return role; lockout error message uses date-fns `formatDistanceToNow` for human-readable remaining time
+- [X] T035 [US2] Implement `logoutAction` in actions/auth.ts: destroy iron-session cookie and return `{ ok: true }`
+- [X] T036 [US2] Build `LoginForm` client component with react-hook-form + loginSchema, server action wiring, inline error display, and submit button disabled + loading spinner while request is in-flight in components/auth/LoginForm.tsx
+- [X] T037 [US2] Create login RSC page that reads `?reason=session_expired` and displays a visible info banner when present; renders LoginForm; redirects authenticated users to their dashboard in app/(auth)/login/page.tsx
+- [X] T038 [US2] Create reusable `LogoutButton` client component that calls `logoutAction` and redirects to `/login` in components/auth/LogoutButton.tsx
+- [X] T039 [US2] Wire `LogoutButton` and session-aware display name into the authenticated shell nav in app/(protected)/layout.tsx
 
 **Checkpoint**: US1 and US2 both independently functional — login, logout, lockout, and session-expiry all work.
 
@@ -114,15 +114,15 @@
 
 ### Tests — User Story 3
 
-- [ ] T040 [P] [US3] Write integration tests for middleware RBAC: submitter → `/admin/*` redirects to `/access-denied`; admin → `/dashboard` redirects to `/admin/dashboard`; unauthenticated → `/login?returnUrl=...`; admin → submitter-only routes → `/access-denied` in tests/integration/auth/rbac.test.ts
-- [ ] T041 [P] [US3] Write Playwright E2E test for admin login, admin route access, submitter role-enforcement, and nav link visibility in tests/e2e/admin-role-enforcement.spec.ts
+- [X] T040 [P] [US3] Write integration tests for middleware RBAC: submitter → `/admin/*` redirects to `/access-denied`; admin → `/dashboard` redirects to `/admin/dashboard`; unauthenticated → `/login?returnUrl=...`; admin → submitter-only routes → `/access-denied` in tests/integration/auth/rbac.test.ts
+- [X] T041 [P] [US3] Write Playwright E2E test for admin login, admin route access, submitter role-enforcement, and nav link visibility in tests/e2e/admin-role-enforcement.spec.ts
 
 ### Implementation — User Story 3
 
-- [ ] T042 [US3] Extend middleware with full RBAC rules: block submitters from `/admin/*` and admins from `/dashboard` (submitter-only); redirect violations to `/access-denied`; append `?reason=session_expired` to `/login` redirect when session is expired in middleware.ts
-- [ ] T043 [US3] Create admin dashboard RSC page with admin-specific content in app/(protected)/admin/dashboard/page.tsx
-- [ ] T044 [US3] Create access-denied RSC page with hardcoded title `Access denied`, message `You do not have permission to access this page.`, and a "Back to Dashboard" button that routes to the user's role-appropriate dashboard in app/(protected)/access-denied/page.tsx
-- [ ] T045 [US3] Implement role-conditioned nav in the authenticated shell: `submitter` renders Dashboard + Logout; `admin` renders Dashboard + Users + Logout in app/(protected)/layout.tsx
+- [X] T042 [US3] Extend middleware with full RBAC rules: block submitters from `/admin/*` and admins from `/dashboard` (submitter-only); redirect violations to `/access-denied`; append `?reason=session_expired` to `/login` redirect when session is expired in middleware.ts
+- [X] T043 [US3] Create admin dashboard RSC page with admin-specific content in app/(protected)/admin/dashboard/page.tsx
+- [X] T044 [US3] Create access-denied RSC page with hardcoded title `Access denied`, message `You do not have permission to access this page.`, and a "Back to Dashboard" button that routes to the user's role-appropriate dashboard in app/(protected)/access-denied/page.tsx
+- [X] T045 [US3] Implement role-conditioned nav in the authenticated shell: `submitter` renders Dashboard + Logout; `admin` renders Dashboard + Users + Logout in app/(protected)/layout.tsx
 
 **Checkpoint**: US3 independently testable with seeded admin and submitter accounts — RBAC, nav labels, and access-denied page all verified.
 
@@ -136,16 +136,16 @@
 
 ### Tests — User Story 4
 
-- [ ] T046 [P] [US4] Write integration tests for `deactivateUserAction`: admin-only authorization gate, status transition `active → inactive`, response includes `deactivatedEmail` in tests/integration/auth/deactivate.test.ts
-- [ ] T047 [P] [US4] Extend login integration tests to cover inactive-user rejection path returning the deactivation message in tests/integration/auth/login.test.ts
-- [ ] T048 [P] [US4] Write Playwright E2E test for full deactivation flow: admin deactivates submitter, submitter login is blocked in tests/e2e/admin-deactivation-flow.spec.ts
+- [X] T046 [P] [US4] Write integration tests for `deactivateUserAction`: admin-only authorization gate, status transition `active → inactive`, response includes `deactivatedEmail` in tests/integration/auth/deactivate.test.ts
+- [X] T047 [P] [US4] Extend login integration tests to cover inactive-user rejection path returning the deactivation message in tests/integration/auth/login.test.ts
+- [X] T048 [P] [US4] Write Playwright E2E test for full deactivation flow: admin deactivates submitter, submitter login is blocked in tests/e2e/admin-deactivation-flow.spec.ts
 
 ### Implementation — User Story 4
 
-- [ ] T049 [US4] Implement `deactivateUserAction` in actions/auth.ts: verify `requireRole('admin')`, set `users.status = 'inactive'`, return `{ ok: true, data: { deactivatedEmail } }` — does NOT modify `failedAttempts` or `lockedUntil`
-- [ ] T050 [US4] Create admin user management RSC page that fetches all users and renders a deactivate button per active user row in app/(protected)/admin/users/page.tsx
-- [ ] T051 [US4] Add `createdAt` column display formatted with `date-fns` `format()` in the user table in app/(protected)/admin/users/page.tsx
-- [ ] T052 [US4] Show deactivation success confirmation (inline alert with `deactivatedEmail`) after `deactivateUserAction` returns `ok: true` in app/(protected)/admin/users/page.tsx
+- [X] T049 [US4] Implement `deactivateUserAction` in actions/auth.ts: verify `requireRole('admin')`, set `users.status = 'inactive'`, return `{ ok: true, data: { deactivatedEmail } }` — does NOT modify `failedAttempts` or `lockedUntil`
+- [X] T050 [US4] Create admin user management RSC page that fetches all users and renders a deactivate button per active user row in app/(protected)/admin/users/page.tsx
+- [X] T051 [US4] Add `createdAt` column display formatted with `date-fns` `format()` in the user table in app/(protected)/admin/users/page.tsx
+- [X] T052 [US4] Show deactivation success confirmation (inline alert with `deactivatedEmail`) after `deactivateUserAction` returns `ok: true` in app/(protected)/admin/users/page.tsx
 
 **Checkpoint**: All four user stories independently functional.
 
@@ -155,11 +155,11 @@
 
 **Purpose**: Accessibility, coverage thresholds, CI scripts, and documentation sign-off
 
-- [ ] T053 [P] Add accessibility assertions (aria-label, aria-describedby, keyboard focus order) to RegisterForm and LoginForm component tests in components/auth/RegisterForm.test.tsx and components/auth/LoginForm.test.tsx
-- [ ] T054 Configure Vitest coverage threshold `lines: 80` for `lib/auth/` and `actions/auth.ts` in vitest.config.ts
-- [ ] T055 [P] Add all npm scripts to package.json: `type-check`, `lint`, `test`, `test:coverage`, `e2e`, `db:migrate`, `db:seed`
-- [ ] T056 [P] Verify quickstart steps match actual project setup and update any stale commands in specs/001-user-auth-management/quickstart.md
-- [ ] T057 Run full quality gate (`npm run type-check`, `npm run lint`, `npm run test`, `npx playwright test`) and document pass/fail in specs/001-user-auth-management/quickstart.md
+- [X] T053 [P] Add accessibility assertions (aria-label, aria-describedby, keyboard focus order) to RegisterForm and LoginForm component tests in components/auth/RegisterForm.test.tsx and components/auth/LoginForm.test.tsx
+- [X] T054 Configure Vitest coverage threshold `lines: 80` for `lib/auth/` and `actions/auth.ts` in vitest.config.ts
+- [X] T055 [P] Add all npm scripts to package.json: `type-check`, `lint`, `test`, `test:coverage`, `e2e`, `db:migrate`, `db:seed`
+- [X] T056 [P] Verify quickstart steps match actual project setup and update any stale commands in specs/001-user-auth-management/quickstart.md
+- [X] T057 Run full quality gate (`npm run type-check`, `npm run lint`, `npm run test`, `npx playwright test`) and document pass/fail in specs/001-user-auth-management/quickstart.md
 
 **Checkpoint**: All gates pass. Feature branch ready for review.
 
