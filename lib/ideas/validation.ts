@@ -113,6 +113,18 @@ export const evaluateIdeaSchema = z.discriminatedUnion('status', [
 export type StartReviewInput  = z.infer<typeof startReviewSchema>
 export type EvaluateIdeaInput = z.infer<typeof evaluateIdeaSchema>
 
+export const decideIdeaStageSchema = z.object({
+  ideaId: z.number().int().positive(),
+  decision: z.enum(['approve_next', 'reject', 'final_approve', 'final_reject']),
+  comment: z
+    .string()
+    .trim()
+    .min(1, { message: 'A decision comment is required.' })
+    .max(1000, { message: 'Comment must be 1000 characters or fewer.' }),
+})
+
+export type DecideIdeaStageInput = z.infer<typeof decideIdeaStageSchema>
+
 // ---------------------------------------------------------------------------
 // Dynamic category field rules
 // ---------------------------------------------------------------------------
