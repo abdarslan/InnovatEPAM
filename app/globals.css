@@ -1,13 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #0070f3;
-  --color-primary-dark: #0051a2;
-  --color-secondary: #7c3aed;
-  --color-danger: #dc2626;
-  --color-warning: #d97706;
-  --color-success: #16a34a;
+  --color-primary: #0489ed;
+  --color-primary-dark: #0365b8;
+  --color-secondary: #5b79a1;
+  --color-danger: #ba1a1a;
+  --color-warning: #de7700;
+  --color-success: #22c55e;
   --color-info: #0284c7;
+  --color-tertiary: #de7700;
+  --color-neutral: #73777f;
   --color-background: #ffffff;
   --color-surface: #f9fafb;
   --color-border: #e5e7eb;
@@ -20,4 +22,17 @@
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
+
+  /* Global shell semantic mappings (US2) */
+  --color-shell-surface: var(--color-background);
+  --color-shell-sidebar: var(--color-background);
+  --color-shell-topbar: var(--color-background);
+  --color-shell-border: var(--color-border);
+  --color-shell-text: var(--color-text);
+  --color-shell-text-muted: var(--color-text-muted);
+  --color-shell-primary: var(--color-primary);
+  --color-shell-focus: var(--color-primary-dark);
+
+  --font-shell-headline: var(--font-sans);
+  --font-shell-body: var(--font-sans);
 }
