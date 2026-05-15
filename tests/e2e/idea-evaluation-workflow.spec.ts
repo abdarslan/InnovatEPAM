@@ -56,7 +56,7 @@ async function applyDecisionOnRow(page: Page, ideaTitle: string, decisionButton:
 }
 
 test.describe('idea evaluation workflow', () => {
-  test('admin completes 4-stage pipeline and visibility rule B is enforced', { timeout: 120000 }, async ({ page }) => {
+  test('admin completes 4-stage pipeline and visibility rule B is enforced', async ({ page }) => {
     test.setTimeout(120000)
     const ts = Date.now()
     const submitterEmail = `spec3-submitter-${ts}@epam.com`
