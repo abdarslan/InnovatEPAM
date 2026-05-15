@@ -47,6 +47,35 @@ export const IDEA_STATUSES = [
 
 export type IdeaStatus = typeof IDEA_STATUSES[number]
 
+export const IDEA_EVALUATION_STAGES = [
+  'stage_1_triage',
+  'stage_2_department_review',
+  'stage_3_feasibility',
+  'stage_4_final_executive_decision',
+] as const
+
+export type IdeaEvaluationStage = typeof IDEA_EVALUATION_STAGES[number]
+
+export const IDEA_EVALUATION_OUTCOMES = [
+  'in_progress',
+  'approved_to_next_stage',
+  'rejected',
+  'final_approved',
+  'final_rejected',
+] as const
+
+export type IdeaEvaluationOutcome = typeof IDEA_EVALUATION_OUTCOMES[number]
+
+export const IDEA_DECISION_TYPES = [
+  'submitted',
+  'approve_next',
+  'reject',
+  'final_approve',
+  'final_reject',
+] as const
+
+export type IdeaDecisionType = typeof IDEA_DECISION_TYPES[number]
+
 export const ideas = sqliteTable('ideas', {
   id:             integer('id').primaryKey({ autoIncrement: true }),
   title:          text('title').notNull(),
@@ -54,6 +83,9 @@ export const ideas = sqliteTable('ideas', {
   category:       text('category', { enum: IDEA_CATEGORIES }).notNull(),
   submitterId:    integer('submitter_id').notNull().references(() => users.id),
   status:         text('status', { enum: IDEA_STATUSES }).notNull().default('submitted'),
+  currentStage:   text('current_stage', { enum: IDEA_EVALUATION_STAGES }).notNull().default('stage_1_triage'),
+  currentOutcome: text('current_outcome', { enum: IDEA_EVALUATION_OUTCOMES }).notNull().default('in_progress'),
+  isTerminal:     integer('is_terminal', { mode: 'boolean' }).notNull().default(false),
   reviewerId:     integer('reviewer_id').references(() => users.id),
   reviewStartedAt: integer('review_started_at'),
   createdAt:      integer('created_at').notNull(),
@@ -82,6 +114,30 @@ export const ideaEvaluations = sqliteTable('idea_evaluations', {
 
 export type IdeaEvaluation    = typeof ideaEvaluations.$inferSelect
 export type NewIdeaEvaluation = typeof ideaEvaluations.$inferInsert
+
+export const ideaDecisionEvents = sqliteTable(
+  'idea_decision_events',
+  {
+    id:              integer('id').primaryKey({ autoIncrement: true }),
+    ideaId:          integer('idea_id').notNull().references(() => ideas.id, { onDelete: 'cascade' }),
+    stage:           text('stage', { enum: IDEA_EVALUATION_STAGES }).notNull(),
+    decisionType:    text('decision_type', { enum: IDEA_DECISION_TYPES }).notNull(),
+    outcome:         text('outcome', { enum: IDEA_EVALUATION_OUTCOMES }).notNull(),
+    comment:         text('comment'),
+    decidedByUserId: integer('decided_by_user_id').references(() => users.id),
+    decidedAt:       integer('decided_at').notNull(),
+    sequence:        integer('sequence').notNull(),
+  },
+  (table) => ({
+    ideaSequenceUnique: uniqueIndex('idea_decision_events_idea_id_sequence_unique')
+      .on(table.ideaId, table.sequence),
+    ideaTimelineIdx: index('idea_decision_events_idea_id_decided_at_idx')
+      .on(table.ideaId, table.decidedAt),
+  }),
+)
+
+export type IdeaDecisionEvent = typeof ideaDecisionEvents.$inferSelect
+export type NewIdeaDecisionEvent = typeof ideaDecisionEvents.$inferInsert
 
 // ---------------------------------------------------------------------------
 // Dynamic Category Field Rules

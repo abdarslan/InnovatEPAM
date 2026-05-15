@@ -57,6 +57,9 @@ export function AdminIdeaRow({ idea }: Props) {
             {idea.category.replace('_', ' ')} · by {idea.submitterName} ·{' '}
             {new Date(idea.createdAt).toLocaleDateString()}
           </p>
+          <p className="text-xs text-muted-foreground">
+            Stage: {idea.currentStage.replaceAll('_', ' ')} · Outcome: {idea.currentOutcome.replaceAll('_', ' ')}
+          </p>
         </div>
         <StatusBadge status={idea.status} />
       </div>
@@ -81,6 +84,13 @@ export function AdminIdeaRow({ idea }: Props) {
             </p>
           )}
         </div>
+      )}
+
+      {(idea.latestDecisionAt || idea.latestDecidedByUserName) && (
+        <p className="text-xs text-muted-foreground">
+          Latest decision by {idea.latestDecidedByUserName ?? 'Unknown'}
+          {idea.latestDecisionAt ? ` on ${new Date(idea.latestDecisionAt).toLocaleString()}` : ''}
+        </p>
       )}
 
       <div className="pt-1">
@@ -128,7 +138,9 @@ export function AdminIdeaRow({ idea }: Props) {
 
       <EvaluationPanel
         ideaId={idea.id}
-        currentStatus={idea.status}
+        currentStage={idea.currentStage}
+        currentOutcome={idea.currentOutcome}
+        isTerminal={idea.isTerminal}
         onSuccess={handleSuccess}
       />
     </li>

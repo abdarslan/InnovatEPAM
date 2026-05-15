@@ -1,214 +1,138 @@
 # Data Model: Idea Evaluation Workflow
 
-**Feature**: `003-idea-evaluation-workflow`
-**Date**: 2026-05-14
-**Storage**: SQLite via Drizzle ORM (`drizzle-orm/sqlite-core`)
+**Feature**: `003-idea-evaluation-workflow`  
+**Date**: 2026-05-15
 
----
+## Overview
 
-## Status Enum
+The model supports:
+- Strict four-stage linear progression
+- Mandatory decision comments
+- Immutable audit history for timeline display
+- Role-based timeline field visibility
 
-The `IdeaStatus` type is shared across both tables and all validation schemas.
+## Enumerations
 
-| Stored value | Display label | Transitions from | Transitions to |
+### Stage
+
+| Value | Label | Sequence |
+|---|---|---|
+| `stage_1_triage` | Stage 1 Triage | 1 |
+| `stage_2_department_review` | Stage 2 Department Review | 2 |
+| `stage_3_feasibility` | Stage 3 Feasibility | 3 |
+| `stage_4_final_executive_decision` | Stage 4 Final Executive Decision | 4 |
+
+### Outcome
+
+| Value | Meaning |
+|---|---|
+| `in_progress` | Idea is active in current stage, awaiting decision |
+| `approved_to_next_stage` | Non-terminal approval that advances to next stage |
+| `rejected` | Terminal rejection at current stage |
+| `final_approved` | Terminal approval at Stage 4 |
+| `final_rejected` | Terminal rejection at Stage 4 |
+
+## Entity: Idea (extended)
+
+Represents the current summary state for listing and card headers.
+
+### Core attributes
+
+| Field | Type | Required | Notes |
 |---|---|---|---|
-| `submitted` | Submitted | — (initial) | `under_review` |
-| `under_review` | Under Review | `submitted` | `accepted`, `rejected` |
-| `accepted` | Accepted | `under_review` | — (terminal) |
-| `rejected` | Rejected | `under_review` | — (terminal) |
+| `id` | number | Yes | Existing primary key |
+| `title` | string | Yes | Existing |
+| `submitterId` | number | Yes | Existing |
+| `currentStage` | Stage | Yes | Current workflow stage |
+| `currentOutcome` | Outcome | Yes | Derived from latest valid decision/event |
+| `isTerminal` | boolean | Yes | True when no further progression allowed |
+| `createdAt` | timestamp | Yes | Existing |
+| `updatedAt` | timestamp | Yes | Existing |
 
-```typescript
-// lib/db/schema.ts
-export const IDEA_STATUSES = ['submitted', 'under_review', 'accepted', 'rejected'] as const
-export type IdeaStatus = typeof IDEA_STATUSES[number]
-```
+### Validation rules
 
----
+- New ideas start at `currentStage=stage_1_triage`, `currentOutcome=in_progress`, `isTerminal=false`.
+- If `currentOutcome` is `rejected`, `final_approved`, or `final_rejected`, `isTerminal` must be true.
 
-## Modified Entity: `ideas`
+## Entity: IdeaDecisionEvent (new, immutable)
 
-The existing `ideas` table is extended with one required and two nullable audit columns.
+Single append-only event per transition/decision used to render timeline.
 
-### New columns
+### Attributes
 
-| Column | SQLite Type | Drizzle | Nullable | Default | Notes |
-|--------|-------------|---------|----------|---------|-------|
-| `status` | `TEXT` | `text('status', { enum: IDEA_STATUSES }).notNull().default('submitted')` | No | `'submitted'` | FR-001, FR-002, FR-020 |
-| `reviewer_id` | `INTEGER` | `integer('reviewer_id').references(() => users.id)` | Yes | `NULL` | FK → `users.id`; set when admin starts review (FR-016) |
-| `review_started_at` | `INTEGER` | `integer('review_started_at')` | Yes | `NULL` | Unix ms; set when status → under_review (FR-016) |
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | number | Yes | Primary key |
+| `ideaId` | number | Yes | FK to idea |
+| `stage` | Stage | Yes | Stage where decision occurred |
+| `decisionType` | enum | Yes | `approve_next`, `reject`, `final_approve`, `final_reject`, `submitted` |
+| `outcome` | Outcome | Yes | Normalized outcome value |
+| `comment` | string | Yes for all decisions except `submitted` | Non-empty for approve/reject/final decisions |
+| `decidedByUserId` | number | Yes for all decisions except optional system submission attribution | Actor for decision |
+| `decidedAt` | timestamp | Yes | Event timestamp |
+| `sequence` | number | Yes | Monotonic per idea for ordering |
 
-### Full table reference (additions only)
+### Validation rules
 
-```typescript
-// lib/db/schema.ts — additions to the existing ideas table definition
-export const ideas = sqliteTable('ideas', {
-  // ... existing columns unchanged ...
-  status:          text('status', { enum: IDEA_STATUSES }).notNull().default('submitted'),
-  reviewerId:      integer('reviewer_id').references(() => users.id),
-  reviewStartedAt: integer('review_started_at'),
-})
-```
+- Event rows are append-only; update/delete operations are forbidden.
+- For `decisionType in (approve_next, reject, final_approve, final_reject)`, `comment` must be non-empty.
+- For `decisionType=submitted`, comment may be empty and is optional.
 
-### State transitions on `ideas.status`
+## Entity: IdeaTimelineView (read projection)
 
-```
-submitted ──[startReviewAction]──► under_review ──[evaluateIdeaAction]──► accepted
-                                                └──[evaluateIdeaAction]──► rejected
-```
+Read model attached to idea cards.
 
-All other transitions are forbidden. The guard `validateTransition(from, to)` in `lib/ideas/transitions.ts` MUST be called server-side before any status update.
+### Shared visible fields (all authenticated viewers)
 
----
+| Field | Type |
+|---|---|
+| `stage` | Stage label |
+| `outcome` | Outcome label |
+| `decidedAt` | timestamp |
+| `sequence` | number |
 
-## New Entity: `idea_evaluations`
+### Privileged fields (submitter + admin only)
 
-Stores the admin's final decision (Accepted or Rejected) on an idea. Each idea has **at most one** evaluation record (UNIQUE constraint on `idea_id`). This record is created only when transitioning from `under_review` → `accepted` or `rejected`.
+| Field | Type |
+|---|---|
+| `comment` | string |
+| `decidedByUser` | display identity |
 
-| Column | SQLite Type | Drizzle | Nullable | Notes |
-|--------|-------------|---------|----------|-------|
-| `id` | `INTEGER` | `integer('id').primaryKey({ autoIncrement: true })` | No | Surrogate PK |
-| `idea_id` | `INTEGER` | `integer('idea_id').notNull().unique().references(() => ideas.id)` | No | FK → `ideas.id`; UNIQUE enforces 1:0..1 |
-| `admin_id` | `INTEGER` | `integer('admin_id').notNull().references(() => users.id)` | No | FK → `users.id`; the evaluating admin |
-| `status` | `TEXT` | `text('status', { enum: ['accepted', 'rejected'] }).notNull()` | No | Final decision status |
-| `comment` | `TEXT` | `text('comment')` | Yes | Required for `rejected`; optional for `accepted`; max 1000 chars. Enforced at app layer. |
-| `created_at` | `INTEGER` | `integer('created_at').notNull()` | No | Unix ms timestamp of evaluation |
+### Visibility rule
 
-**Invariants**:
-- `idea_id` is UNIQUE — only one evaluation record per idea.
-- `status` can only be `'accepted'` or `'rejected'` — not `'submitted'` or `'under_review'`.
-- When `status = 'rejected'`, `comment` MUST be non-empty (enforced in Zod schema, not DB constraint).
-- The `created_at` timestamp and `admin_id` are immutable once inserted (FR-017).
-
-```typescript
-// lib/db/schema.ts — new table
-export const EVALUATION_STATUSES = ['accepted', 'rejected'] as const
-export type EvaluationStatus = typeof EVALUATION_STATUSES[number]
-
-export const ideaEvaluations = sqliteTable('idea_evaluations', {
-  id:        integer('id').primaryKey({ autoIncrement: true }),
-  ideaId:    integer('idea_id').notNull().unique().references(() => ideas.id),
-  adminId:   integer('admin_id').notNull().references(() => users.id),
-  status:    text('status', { enum: EVALUATION_STATUSES }).notNull(),
-  comment:   text('comment'),
-  createdAt: integer('created_at').notNull(),
-})
-
-export type IdeaEvaluation    = typeof ideaEvaluations.$inferSelect
-export type NewIdeaEvaluation = typeof ideaEvaluations.$inferInsert
-```
-
----
+- Server decides field projection by requester context.
+- Non-admin, non-submitter viewers never receive `comment` in response payload.
 
 ## Relationships
 
-```
-users (1) ──────────────────────────────────< ideas (N)
-  id                                            submitter_id
+- One Idea has many IdeaDecisionEvents.
+- One User can author many IdeaDecisionEvents.
+- One Idea has one timeline projection built from ordered IdeaDecisionEvents.
 
-users (1) ─────────────[reviewer]─────────────< ideas (N)
-  id                                            reviewer_id  [nullable]
+## State Transitions
 
-users (1) ─────────────[evaluator]────────────< idea_evaluations (N)
-  id                                            admin_id
+### Allowed transitions
 
-ideas (1) ──────────────────────────────────◇─ idea_evaluations (0..1)
-  id                                            idea_id  [UNIQUE]
-```
+| Current Stage | Current Outcome | Decision | Next Stage | Next Outcome | Terminal |
+|---|---|---|---|---|---|
+| Stage 1 | in_progress | approve_next | Stage 2 | in_progress | No |
+| Stage 1 | in_progress | reject | Stage 1 | rejected | Yes |
+| Stage 2 | in_progress | approve_next | Stage 3 | in_progress | No |
+| Stage 2 | in_progress | reject | Stage 2 | rejected | Yes |
+| Stage 3 | in_progress | approve_next | Stage 4 | in_progress | No |
+| Stage 3 | in_progress | reject | Stage 3 | rejected | Yes |
+| Stage 4 | in_progress | final_approve | Stage 4 | final_approved | Yes |
+| Stage 4 | in_progress | final_reject | Stage 4 | final_rejected | Yes |
 
-- One `user` (submitter) may submit zero or many `ideas`.
-- One `user` (admin) may start review on zero or many `ideas` (via `ideas.reviewer_id`).
-- One `user` (admin) may create zero or many `idea_evaluations`.
-- One `idea` has at most one `idea_evaluation` (enforced by UNIQUE constraint).
+### Forbidden transitions
 
----
+- Stage skipping (e.g., Stage 1 -> Stage 3)
+- Backward transitions (e.g., Stage 3 -> Stage 2)
+- Any transition when `isTerminal=true`
 
-## Drizzle Migration
+## Invariants
 
-**File**: `lib/db/migrations/0002_add_evaluation_workflow.sql`
-
-```sql
--- Add status tracking to ideas
-ALTER TABLE ideas ADD COLUMN status TEXT NOT NULL DEFAULT 'submitted';
-ALTER TABLE ideas ADD COLUMN reviewer_id INTEGER REFERENCES users(id);
-ALTER TABLE ideas ADD COLUMN review_started_at INTEGER;
-
--- Create idea evaluations table
-CREATE TABLE idea_evaluations (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  idea_id    INTEGER NOT NULL UNIQUE REFERENCES ideas(id),
-  admin_id   INTEGER NOT NULL REFERENCES users(id),
-  status     TEXT NOT NULL CHECK (status IN ('accepted', 'rejected')),
-  comment    TEXT,
-  created_at INTEGER NOT NULL
-);
-```
-
----
-
-## Validation Rules
-
-### `startReviewSchema` (lib/ideas/validation.ts)
-
-```typescript
-export const startReviewSchema = z.object({
-  ideaId: z.number().int().positive(),
-})
-```
-
-- Server action validates: session is admin role, idea exists, current status is `'submitted'`.
-- Transition `submitted → under_review` confirmed by `validateTransition()`.
-
-### `evaluateIdeaSchema` (lib/ideas/validation.ts)
-
-```typescript
-export const evaluateIdeaSchema = z.discriminatedUnion('status', [
-  z.object({
-    ideaId:  z.number().int().positive(),
-    status:  z.literal('accepted'),
-    comment: z.string().max(1000).optional(),
-  }),
-  z.object({
-    ideaId:  z.number().int().positive(),
-    status:  z.literal('rejected'),
-    comment: z.string().min(1, 'Rejection reason is required').max(1000),
-  }),
-])
-```
-
-- Server action validates: session is admin role, idea exists, current status is `'under_review'`.
-- Transition `under_review → accepted|rejected` confirmed by `validateTransition()`.
-- `comment` is required when `status === 'rejected'` (FR-007); optional when `status === 'accepted'` (FR-008).
-- `comment` may not exceed 1000 characters when provided (FR-010).
-
----
-
-## State Machine Guard
-
-**File**: `lib/ideas/transitions.ts`
-
-```typescript
-import type { IdeaStatus } from '@/lib/db/schema'
-
-const ALLOWED_TRANSITIONS: Record<IdeaStatus, IdeaStatus[]> = {
-  submitted:    ['under_review'],
-  under_review: ['accepted', 'rejected'],
-  accepted:     [],
-  rejected:     [],
-}
-
-export function validateTransition(from: IdeaStatus, to: IdeaStatus): boolean {
-  return ALLOWED_TRANSITIONS[from].includes(to)
-}
-```
-
----
-
-## Deletion Guard
-
-The existing `deleteIdeaAction` in `actions/ideas.ts` MUST be extended to reject deletion of ideas in `'under_review'` status (FR-022):
-
-```typescript
-if (idea.status === 'under_review') {
-  return { ok: false, error: 'Ideas under review cannot be deleted.' }
-}
-```
+- Every progression/rejection/final decision must have a non-empty comment.
+- Every decision event has actor identity and timestamp.
+- Timeline ordering is deterministic by `(sequence, decidedAt)`.
+- Current idea summary (`currentStage`, `currentOutcome`, `isTerminal`) must be consistent with latest valid event.

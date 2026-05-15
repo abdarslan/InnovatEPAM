@@ -2,50 +2,48 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import type { IdeaStatus } from '@/actions/ideas'
-import { startReviewAction, evaluateIdeaAction } from '@/actions/ideas'
+import type { DecisionType, EvaluationOutcome, EvaluationStage } from '@/actions/ideas'
+import { decideIdeaStageAction } from '@/actions/ideas'
 import { Button } from '@/components/ui/button'
 
 type Props = {
   ideaId: number
-  currentStatus: IdeaStatus
+  currentStage: EvaluationStage
+  currentOutcome: EvaluationOutcome
+  isTerminal: boolean
   onSuccess: () => void
 }
 
-export function EvaluationPanel({ ideaId, currentStatus, onSuccess }: Props) {
+const STAGE_LABELS: Record<EvaluationStage, string> = {
+  stage_1_triage: 'Stage 1 Triage',
+  stage_2_department_review: 'Stage 2 Department Review',
+  stage_3_feasibility: 'Stage 3 Feasibility',
+  stage_4_final_executive_decision: 'Stage 4 Final Executive Decision',
+}
+
+export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTerminal, onSuccess }: Props) {
   const [isPending, startTransition] = useTransition()
-  const [activeAction, setActiveAction] = useState<'accept' | 'reject' | null>(null)
+  const [activeAction, setActiveAction] = useState<DecisionType | null>(null)
   const [comment, setComment]           = useState('')
   const [commentError, setCommentError] = useState<string | null>(null)
 
-  function handleStartReview() {
-    startTransition(async () => {
-      const result = await startReviewAction(ideaId)
-      if (result.ok) {
-        toast.success('Review started.')
-        onSuccess()
-      } else {
-        toast.error(result.error)
-      }
-    })
-  }
-
-  function handleEvaluate(status: 'accepted' | 'rejected') {
+  function handleDecision(decision: DecisionType) {
     setCommentError(null)
-    const payload =
-      status === 'accepted'
-        ? { status: 'accepted' as const, ideaId, comment: comment || undefined }
-        : { status: 'rejected' as const, ideaId, comment }
 
-    if (status === 'rejected' && !comment.trim()) {
-      setCommentError('Rejection reason is required.')
+    if (!comment.trim()) {
+      setCommentError('Decision comment is required.')
       return
     }
 
     startTransition(async () => {
-      const result = await evaluateIdeaAction(payload)
+      const result = await decideIdeaStageAction({
+        ideaId,
+        decision,
+        comment: comment.trim(),
+      })
+
       if (result.ok) {
-        toast.success(`Idea ${status === 'accepted' ? 'accepted' : 'rejected'}.`)
+        toast.success('Decision saved.')
         setActiveAction(null)
         setComment('')
         onSuccess()
@@ -55,56 +53,55 @@ export function EvaluationPanel({ ideaId, currentStatus, onSuccess }: Props) {
     })
   }
 
-  if (currentStatus === 'submitted') {
-    return (
-      <div className="mt-2">
-        <Button
-          size="sm"
-          onClick={handleStartReview}
-          disabled={isPending}
-          aria-label="Start review for this idea"
-        >
-          {isPending ? 'Starting…' : 'Start Review'}
-        </Button>
-      </div>
-    )
-  }
+  const isFinalStage = currentStage === 'stage_4_final_executive_decision'
 
-  if (currentStatus === 'under_review') {
+  const decisionOptions: Array<{ value: DecisionType; label: string; variant: 'default' | 'destructive' }> =
+    isFinalStage
+      ? [
+        { value: 'final_approve', label: 'Final Approve', variant: 'default' },
+        { value: 'final_reject', label: 'Final Reject', variant: 'destructive' },
+      ]
+      : [
+        { value: 'approve_next', label: 'Approve to Next Stage', variant: 'default' },
+        { value: 'reject', label: 'Reject', variant: 'destructive' },
+      ]
+
+  if (!isTerminal && currentOutcome === 'in_progress') {
     return (
       <div className="mt-2 space-y-2">
+        <p className="text-sm text-muted-foreground">
+          Current step: {STAGE_LABELS[currentStage]}
+        </p>
+
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="default"
-            onClick={() => { setActiveAction(activeAction === 'accept' ? null : 'accept'); setCommentError(null) }}
-            disabled={isPending}
-            aria-label="Accept this idea"
-          >
-            Accept
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => { setActiveAction(activeAction === 'reject' ? null : 'reject'); setCommentError(null) }}
-            disabled={isPending}
-            aria-label="Reject this idea"
-          >
-            Reject
-          </Button>
+          {decisionOptions.map((option) => (
+            <Button
+              key={option.value}
+              size="sm"
+              variant={option.variant}
+              onClick={() => {
+                setActiveAction(activeAction === option.value ? null : option.value)
+                setCommentError(null)
+              }}
+              disabled={isPending}
+              aria-label={option.label}
+            >
+              {option.label}
+            </Button>
+          ))}
         </div>
 
         {activeAction !== null && (
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              handleEvaluate(activeAction === 'accept' ? 'accepted' : 'rejected')
+              handleDecision(activeAction)
             }}
             className="space-y-2"
           >
             <div>
               <label htmlFor={`comment-${ideaId}`} className="block text-sm font-medium mb-1">
-                {activeAction === 'reject' ? 'Rejection reason (required)' : 'Comment (optional)'}
+                Decision comment (required)
               </label>
               <textarea
                 id={`comment-${ideaId}`}
@@ -112,9 +109,7 @@ export function EvaluationPanel({ ideaId, currentStatus, onSuccess }: Props) {
                 onChange={(e) => setComment(e.target.value)}
                 rows={3}
                 className="w-full rounded border border-input bg-background px-3 py-2 text-sm"
-                placeholder={
-                  activeAction === 'reject' ? 'Explain why this idea is rejected…' : 'Optional comment…'
-                }
+                placeholder="Explain this decision..."
               />
               {commentError && (
                 <p role="alert" className="mt-1 text-sm text-destructive">
@@ -123,11 +118,7 @@ export function EvaluationPanel({ ideaId, currentStatus, onSuccess }: Props) {
               )}
             </div>
             <Button type="submit" size="sm" disabled={isPending}>
-              {isPending
-                ? 'Saving…'
-                : activeAction === 'accept'
-                  ? 'Confirm Accept'
-                  : 'Confirm Reject'}
+              {isPending ? 'Saving…' : 'Confirm Decision'}
             </Button>
           </form>
         )}
@@ -137,7 +128,7 @@ export function EvaluationPanel({ ideaId, currentStatus, onSuccess }: Props) {
 
   return (
     <p className="mt-2 text-sm text-muted-foreground" aria-label="Evaluation complete">
-      Evaluation complete
+      Evaluation complete at {STAGE_LABELS[currentStage]}.
     </p>
   )
 }

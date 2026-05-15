@@ -1,17 +1,21 @@
 'use server'
 
-import { and, asc, desc, eq, inArray } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, max } from 'drizzle-orm'
 import { db } from '@/lib/db'
 import {
   ideaAttachments,
   ideaDrafts,
   ideas,
   ideaCategoryFieldRules,
+  ideaDecisionEvents,
   ideaEvaluations,
   ideaFieldValues,
   users,
   IDEA_STATUSES,
   type IdeaCategory,
+  type IdeaDecisionType,
+  type IdeaEvaluationOutcome,
+  type IdeaEvaluationStage,
   type IdeaStatus,
 } from '@/lib/db/schema'
 import { requireAuth } from '@/lib/auth/session'
@@ -25,12 +29,17 @@ import {
   updateIdeaSchema,
   startReviewSchema,
   evaluateIdeaSchema,
+  decideIdeaStageSchema,
   validateAttachmentFiles,
 } from '@/lib/ideas/validation'
-import { validateTransition } from '@/lib/ideas/transitions'
+import { resolveStageDecision, validateTransition } from '@/lib/ideas/transitions'
 import { getActiveRulesForCategory, validateDynamicFieldValues } from '@/lib/ideas/category-fields'
 
 export type { IdeaStatus }
+
+export type EvaluationStage = IdeaEvaluationStage
+export type EvaluationOutcome = IdeaEvaluationOutcome
+export type DecisionType = Exclude<IdeaDecisionType, 'submitted'>
 
 // ---------------------------------------------------------------------------
 // Shared result type
@@ -81,6 +90,9 @@ export type IdeaListItem = {
   title: string
   category: IdeaCategory
   status: IdeaStatus
+  currentStage: EvaluationStage
+  currentOutcome: EvaluationOutcome
+  isTerminal: boolean
   submitterName: string
   submitterId: number
   createdAt: number
@@ -110,12 +122,31 @@ export type IdeaDetail = IdeaListItem & {
 export type AdminIdeaListItem = IdeaListItem & {
   reviewerName: string | null
   reviewStartedAt: number | null
+  latestDecisionAt: number | null
+  latestDecidedByUserName: string | null
   evaluation: {
     adminName: string
     status: 'accepted' | 'rejected'
     comment: string | null
     createdAt: number
   } | null
+}
+
+export type IdeaTimelineEntry = {
+  sequence: number
+  stage: EvaluationStage
+  decisionType: IdeaDecisionType
+  outcome: EvaluationOutcome
+  decidedAt: number
+  comment?: string
+  decidedByUser?: string
+}
+
+function mapOutcomeToLegacyStatus(outcome: EvaluationOutcome): IdeaStatus {
+  if (outcome === 'in_progress' || outcome === 'approved_to_next_stage') return 'under_review'
+  if (outcome === 'final_approved') return 'accepted'
+  if (outcome === 'rejected' || outcome === 'final_rejected') return 'rejected'
+  return 'submitted'
 }
 
 // ---------------------------------------------------------------------------
@@ -251,6 +282,9 @@ export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
         title: ideas.title,
         category: ideas.category,
         status: ideas.status,
+        currentStage: ideas.currentStage,
+        currentOutcome: ideas.currentOutcome,
+        isTerminal: ideas.isTerminal,
         submitterName: users.displayName,
         submitterId: ideas.submitterId,
         createdAt: ideas.createdAt,
@@ -279,6 +313,9 @@ export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
         ...row,
         category: row.category as IdeaCategory,
         status: row.status as IdeaStatus,
+        currentStage: row.currentStage as EvaluationStage,
+        currentOutcome: row.currentOutcome as EvaluationOutcome,
+        isTerminal: Boolean(row.isTerminal),
         attachmentCount,
         hasAttachment: attachmentCount > 0,
       }
@@ -307,6 +344,9 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
         description: ideas.description,
         category: ideas.category,
         status: ideas.status,
+        currentStage: ideas.currentStage,
+        currentOutcome: ideas.currentOutcome,
+        isTerminal: ideas.isTerminal,
         submitterName: users.displayName,
         submitterId: ideas.submitterId,
         createdAt: ideas.createdAt,
@@ -366,6 +406,9 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
       description: r.description,
       category: r.category as IdeaCategory,
       status: r.status as IdeaStatus,
+      currentStage: r.currentStage as EvaluationStage,
+      currentOutcome: r.currentOutcome as EvaluationOutcome,
+      isTerminal: Boolean(r.isTerminal),
       submitterName: r.submitterName,
       submitterId: r.submitterId,
       createdAt: r.createdAt,
@@ -472,6 +515,19 @@ export async function submitIdeaAction(
           .values(preparedAttachments.map((a) => ({ ...a, ideaId: insertedIdeaId })))
           .run()
       }
+
+      tx.insert(ideaDecisionEvents)
+        .values({
+          ideaId: insertedIdeaId,
+          stage: 'stage_1_triage',
+          decisionType: 'submitted',
+          outcome: 'in_progress',
+          comment: null,
+          decidedByUserId: session.userId,
+          decidedAt: now,
+          sequence: 1,
+        })
+        .run()
 
       const dynamicValueRows = Object.entries(dynamicValidation.normalizedValues)
         .map(([fieldKey, value]) => {
@@ -630,6 +686,217 @@ export async function deleteIdeaAction(id: number): Promise<ActionResult<void>> 
 }
 
 // ---------------------------------------------------------------------------
+// decideIdeaStageAction - admin only, 4-stage evaluation pipeline
+// ---------------------------------------------------------------------------
+
+export async function decideIdeaStageAction(input: {
+  ideaId: number
+  decision: DecisionType
+  comment: string
+}): Promise<ActionResult<void>> {
+  let session
+  try {
+    session = await requireAuth()
+  } catch {
+    return { ok: false, error: 'UNAUTHENTICATED' }
+  }
+
+  if (session.role !== 'admin') {
+    return { ok: false, error: 'FORBIDDEN' }
+  }
+
+  const parsed = decideIdeaStageSchema.safeParse(input)
+  if (!parsed.success) {
+    return { ok: false, error: 'VALIDATION_ERROR' }
+  }
+
+  const ideaRows = await db
+    .select({
+      id: ideas.id,
+      currentStage: ideas.currentStage,
+      currentOutcome: ideas.currentOutcome,
+      isTerminal: ideas.isTerminal,
+      reviewerId: ideas.reviewerId,
+    })
+    .from(ideas)
+    .where(eq(ideas.id, parsed.data.ideaId))
+    .all()
+
+  if (ideaRows.length === 0) {
+    return { ok: false, error: 'IDEA_NOT_FOUND' }
+  }
+
+  const idea = ideaRows[0]
+  const currentState = {
+    stage: idea.currentStage as EvaluationStage,
+    outcome: idea.currentOutcome as EvaluationOutcome,
+    isTerminal: Boolean(idea.isTerminal),
+  }
+
+  const next = resolveStageDecision(currentState, parsed.data.decision)
+  if (!next) {
+    return { ok: false, error: 'INVALID_TRANSITION' }
+  }
+
+  const now = Date.now()
+  const eventOutcome: EvaluationOutcome =
+    parsed.data.decision === 'approve_next' ? 'approved_to_next_stage' : next.nextOutcome
+  const nextStatus = mapOutcomeToLegacyStatus(next.nextOutcome)
+
+  try {
+    db.transaction((tx) => {
+      const seqRows = tx
+        .select({ maxSequence: max(ideaDecisionEvents.sequence) })
+        .from(ideaDecisionEvents)
+        .where(eq(ideaDecisionEvents.ideaId, parsed.data.ideaId))
+        .all()
+      const nextSequence = (seqRows[0]?.maxSequence ?? 0) + 1
+
+      const updated = tx
+        .update(ideas)
+        .set({
+          currentStage: next.nextStage,
+          currentOutcome: next.nextOutcome,
+          isTerminal: next.isTerminal,
+          status: nextStatus,
+          reviewerId: idea.reviewerId ?? session.userId,
+          reviewStartedAt: idea.reviewerId ? undefined : now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(ideas.id, parsed.data.ideaId),
+            eq(ideas.currentStage, currentState.stage),
+            eq(ideas.currentOutcome, currentState.outcome),
+            eq(ideas.isTerminal, currentState.isTerminal),
+          ),
+        )
+        .run()
+
+      if (updated.changes === 0) {
+        throw new Error('CONFLICT_STALE_STATE')
+      }
+
+      tx.insert(ideaDecisionEvents)
+        .values({
+          ideaId: parsed.data.ideaId,
+          stage: currentState.stage,
+          decisionType: parsed.data.decision,
+          outcome: eventOutcome,
+          comment: parsed.data.comment,
+          decidedByUserId: session.userId,
+          decidedAt: now,
+          sequence: nextSequence,
+        })
+        .run()
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'CONFLICT_STALE_STATE') {
+      return { ok: false, error: 'CONFLICT_STALE_STATE' }
+    }
+    return { ok: false, error: 'Failed to apply decision.' }
+  }
+
+  return { ok: true, data: undefined }
+}
+
+export async function updateIdeaDecisionEventAction(): Promise<ActionResult<void>> {
+  let session
+  try {
+    session = await requireAuth()
+  } catch {
+    return { ok: false, error: 'UNAUTHENTICATED' }
+  }
+
+  if (session.role !== 'admin') {
+    return { ok: false, error: 'FORBIDDEN' }
+  }
+
+  return { ok: false, error: 'FORBIDDEN_APPEND_ONLY' }
+}
+
+export async function deleteIdeaDecisionEventAction(): Promise<ActionResult<void>> {
+  let session
+  try {
+    session = await requireAuth()
+  } catch {
+    return { ok: false, error: 'UNAUTHENTICATED' }
+  }
+
+  if (session.role !== 'admin') {
+    return { ok: false, error: 'FORBIDDEN' }
+  }
+
+  return { ok: false, error: 'FORBIDDEN_APPEND_ONLY' }
+}
+
+// ---------------------------------------------------------------------------
+// getIdeaTimelineAction - viewer-aware timeline projection
+// ---------------------------------------------------------------------------
+
+export async function getIdeaTimelineAction(
+  input: { ideaId: number },
+): Promise<ActionResult<IdeaTimelineEntry[]>> {
+  let session
+  try {
+    session = await requireAuth()
+  } catch {
+    return { ok: false, error: 'UNAUTHENTICATED' }
+  }
+
+  const parsed = startReviewSchema.safeParse({ ideaId: input.ideaId })
+  if (!parsed.success) {
+    return { ok: false, error: 'VALIDATION_ERROR' }
+  }
+
+  const ideaRows = await db
+    .select({ submitterId: ideas.submitterId })
+    .from(ideas)
+    .where(eq(ideas.id, parsed.data.ideaId))
+    .all()
+
+  if (ideaRows.length === 0) {
+    return { ok: false, error: 'IDEA_NOT_FOUND' }
+  }
+
+  const canViewPrivilegedFields = session.role === 'admin' || session.userId === ideaRows[0].submitterId
+
+  const rows = await db
+    .select({
+      sequence: ideaDecisionEvents.sequence,
+      stage: ideaDecisionEvents.stage,
+      decisionType: ideaDecisionEvents.decisionType,
+      outcome: ideaDecisionEvents.outcome,
+      decidedAt: ideaDecisionEvents.decidedAt,
+      comment: ideaDecisionEvents.comment,
+      decidedByUser: users.displayName,
+    })
+    .from(ideaDecisionEvents)
+    .leftJoin(users, eq(ideaDecisionEvents.decidedByUserId, users.id))
+    .where(eq(ideaDecisionEvents.ideaId, parsed.data.ideaId))
+    .orderBy(asc(ideaDecisionEvents.sequence), asc(ideaDecisionEvents.decidedAt))
+
+  const data = rows.map((row) => {
+    const base: IdeaTimelineEntry = {
+      sequence: row.sequence,
+      stage: row.stage as EvaluationStage,
+      decisionType: row.decisionType as IdeaDecisionType,
+      outcome: row.outcome as EvaluationOutcome,
+      decidedAt: row.decidedAt,
+    }
+
+    if (canViewPrivilegedFields) {
+      if (row.comment) base.comment = row.comment
+      if (row.decidedByUser) base.decidedByUser = row.decidedByUser
+    }
+
+    return base
+  })
+
+  return { ok: true, data }
+}
+
+// ---------------------------------------------------------------------------
 // startReviewAction - admin only, Submitted -> UnderReview
 // ---------------------------------------------------------------------------
 
@@ -757,6 +1024,9 @@ export async function getAdminIdeasAction(
         title:           ideas.title,
         category:        ideas.category,
         status:          ideas.status,
+        currentStage:    ideas.currentStage,
+        currentOutcome:  ideas.currentOutcome,
+        isTerminal:      ideas.isTerminal,
         submitterName:   users.displayName,
         submitterId:     ideas.submitterId,
         createdAt:       ideas.createdAt,
@@ -777,11 +1047,53 @@ export async function getAdminIdeasAction(
       ? (await query).filter((r) => r.status === statusFilter)
       : await query
 
+    const ideaIds = rows.map((r) => r.id)
+    const latestEventRows = ideaIds.length === 0
+      ? []
+      : await db
+        .select({
+          ideaId: ideaDecisionEvents.ideaId,
+          latestDecisionAt: max(ideaDecisionEvents.decidedAt),
+        })
+        .from(ideaDecisionEvents)
+        .where(inArray(ideaDecisionEvents.ideaId, ideaIds))
+        .groupBy(ideaDecisionEvents.ideaId)
+
+    const latestEventAtByIdeaId = new Map<number, number>()
+    for (const row of latestEventRows) {
+      if (row.latestDecisionAt !== null) {
+        latestEventAtByIdeaId.set(row.ideaId, row.latestDecisionAt)
+      }
+    }
+
+    const eventActorRows = ideaIds.length === 0
+      ? []
+      : await db
+        .select({
+          ideaId: ideaDecisionEvents.ideaId,
+          decidedAt: ideaDecisionEvents.decidedAt,
+          decidedByUserId: ideaDecisionEvents.decidedByUserId,
+        })
+        .from(ideaDecisionEvents)
+        .where(inArray(ideaDecisionEvents.ideaId, ideaIds))
+
+    const latestDecisionByIdeaId = new Map<number, { decidedAt: number; decidedByUserId: number | null }>()
+    for (const row of eventActorRows) {
+      const expectedLatest = latestEventAtByIdeaId.get(row.ideaId)
+      if (expectedLatest === undefined || row.decidedAt !== expectedLatest) continue
+      latestDecisionByIdeaId.set(row.ideaId, {
+        decidedAt: row.decidedAt,
+        decidedByUserId: row.decidedByUserId ?? null,
+      })
+    }
+
     // Collect unique reviewer/admin IDs to fetch names
     const adminIds = new Set<number>()
     for (const r of rows) {
       if (r.reviewerId)   adminIds.add(r.reviewerId)
-      if (r.evalAdminId)  adminIds.add(r.evalAdminId)
+      if (r.evalAdminId) adminIds.add(r.evalAdminId)
+      const latestDecision = latestDecisionByIdeaId.get(r.id)
+      if (latestDecision?.decidedByUserId) adminIds.add(latestDecision.decidedByUserId)
     }
 
     const adminMap = new Map<number, string>()
@@ -797,6 +1109,9 @@ export async function getAdminIdeasAction(
       title:           r.title,
       category:        r.category as IdeaCategory,
       status:          r.status as IdeaStatus,
+      currentStage:    r.currentStage as EvaluationStage,
+      currentOutcome:  r.currentOutcome as EvaluationOutcome,
+      isTerminal:      Boolean(r.isTerminal),
       submitterName:   r.submitterName,
       submitterId:     r.submitterId,
       createdAt:       r.createdAt,
@@ -805,6 +1120,11 @@ export async function getAdminIdeasAction(
       attachmentCount: 0,
       reviewerName:    r.reviewerId ? (adminMap.get(r.reviewerId) ?? null) : null,
       reviewStartedAt: r.reviewStartedAt ?? null,
+      latestDecisionAt: latestDecisionByIdeaId.get(r.id)?.decidedAt ?? null,
+      latestDecidedByUserName: (() => {
+        const decidedByUserId = latestDecisionByIdeaId.get(r.id)?.decidedByUserId
+        return decidedByUserId ? (adminMap.get(decidedByUserId) ?? null) : null
+      })(),
       evaluation: r.evalStatus !== null && r.evalAdminId !== null && r.evalCreatedAt !== null
         ? {
           adminName: adminMap.get(r.evalAdminId) ?? 'Admin',

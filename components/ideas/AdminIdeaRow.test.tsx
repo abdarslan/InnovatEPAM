@@ -7,8 +7,7 @@ import type { AdminIdeaListItem } from '@/actions/ideas'
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 const mockGetIdeaDetailAction = vi.fn()
 vi.mock('@/actions/ideas', () => ({
-  startReviewAction:  vi.fn(),
-  evaluateIdeaAction: vi.fn(),
+  decideIdeaStageAction: vi.fn(),
   getIdeaDetailAction: (...args: unknown[]) => mockGetIdeaDetailAction(...args),
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -18,13 +17,19 @@ const baseIdea: AdminIdeaListItem = {
   title:           'Great Idea',
   category:        'technology_innovation',
   status:          'submitted',
+  currentStage:    'stage_1_triage',
+  currentOutcome:  'in_progress',
+  isTerminal:      false,
   submitterName:   'Alice',
   submitterId:     10,
   createdAt:       Date.now(),
   updatedAt:       Date.now(),
   hasAttachment:   false,
+  attachmentCount: 0,
   reviewerName:    null,
   reviewStartedAt: null,
+  latestDecisionAt: null,
+  latestDecidedByUserName: null,
   evaluation:      null,
 }
 
@@ -66,6 +71,8 @@ describe('AdminIdeaRow', () => {
         idea={{
           ...baseIdea,
           status:     'rejected',
+          currentOutcome: 'rejected',
+          isTerminal: true,
           evaluation: { adminName: 'Admin', status: 'rejected', comment: 'Not viable', createdAt: Date.now() },
         }}
       />
@@ -73,9 +80,9 @@ describe('AdminIdeaRow', () => {
     expect(screen.getByText('Not viable')).toBeInTheDocument()
   })
 
-  it('shows EvaluationPanel Start Review button for submitted status', () => {
+  it('shows stage decision controls for active ideas', () => {
     render(<AdminIdeaRow idea={baseIdea} />)
-    expect(screen.getByRole('button', { name: /start review/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /approve to next stage/i })).toBeInTheDocument()
   })
 
   it('shows dynamic fields when admin opens details', async () => {
@@ -87,5 +94,19 @@ describe('AdminIdeaRow', () => {
     expect(await screen.findByText(/category details/i)).toBeInTheDocument()
     expect(await screen.findByText(/planned date:/i)).toBeInTheDocument()
     expect(await screen.findByText('2026-11-20')).toBeInTheDocument()
+  })
+
+  it('shows latest accountability metadata when available', () => {
+    render(
+      <AdminIdeaRow
+        idea={{
+          ...baseIdea,
+          latestDecisionAt: 1710000000000,
+          latestDecidedByUserName: 'Senior Admin',
+        }}
+      />,
+    )
+
+    expect(screen.getByText(/latest decision by senior admin/i)).toBeInTheDocument()
   })
 })
