@@ -102,7 +102,12 @@ describe('decision events immutability', () => {
       .where(eq(ideaDecisionEvents.sequence, 2))
       .all()[0]
 
-    await decideIdeaStageAction({ ideaId, decision: 'approve_next', comment: 'Approved from stage 2.' })
+    await decideIdeaStageAction({
+      ideaId,
+      decision: 'approve_next',
+      comment: 'Approved from stage 2.',
+      ratingScore: 4,
+    })
 
     const sameDecision = testDb
       .select()

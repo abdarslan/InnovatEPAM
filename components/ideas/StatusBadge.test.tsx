@@ -17,4 +17,9 @@ describe('StatusBadge', () => {
     render(<StatusBadge status="accepted" />)
     expect(screen.getByLabelText('accepted')).toBeInTheDocument()
   })
+
+  it('renders scored adjunct when scoreReady is true', () => {
+    render(<StatusBadge status="accepted" scoreReady />)
+    expect(screen.getByText(/accepted · scored/i)).toBeInTheDocument()
+  })
 })

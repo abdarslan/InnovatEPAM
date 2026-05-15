@@ -48,11 +48,12 @@ describe('EvaluationPanel', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /approve to next stage/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /alignment rating 4 of 5/i }))
     fireEvent.change(screen.getByLabelText(/decision comment/i), { target: { value: 'Looks strong.' } })
     fireEvent.click(screen.getByRole('button', { name: /confirm decision/i }))
 
     await waitFor(() => expect(mockDecide).toHaveBeenCalledWith(
-      expect.objectContaining({ ideaId: 2, decision: 'approve_next', comment: 'Looks strong.' }),
+      expect.objectContaining({ ideaId: 2, decision: 'approve_next', comment: 'Looks strong.', ratingScore: 4 }),
     ))
     await waitFor(() => expect(onSuccess).toHaveBeenCalled())
     expect(toastSuccess).toHaveBeenCalledWith('Decision saved.')
@@ -73,6 +74,52 @@ describe('EvaluationPanel', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/decision comment is required/i)
   })
 
+  it('requires stage 2 rating before confirming approve-next decision', async () => {
+    render(
+      <EvaluationPanel
+        ideaId={31}
+        currentStage="stage_2_department_review"
+        currentOutcome="in_progress"
+        isTerminal={false}
+        onSuccess={onSuccess}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /approve to next stage/i }))
+    fireEvent.change(screen.getByLabelText(/decision comment/i), { target: { value: 'Ready to advance' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirm decision/i }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/please select a rating before confirming/i)
+    expect(mockDecide).not.toHaveBeenCalled()
+  })
+
+  it('submits feasibility rating when approving from stage 3', async () => {
+    mockDecide.mockResolvedValue({ ok: true, data: undefined })
+    render(
+      <EvaluationPanel
+        ideaId={33}
+        currentStage="stage_3_feasibility"
+        currentOutcome="in_progress"
+        isTerminal={false}
+        onSuccess={onSuccess}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /approve to next stage/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /feasibility rating 3 of 5/i }))
+    fireEvent.change(screen.getByLabelText(/decision comment/i), { target: { value: 'Feasible with minor constraints.' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirm decision/i }))
+
+    await waitFor(() => expect(mockDecide).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ideaId: 33,
+        decision: 'approve_next',
+        comment: 'Feasible with minor constraints.',
+        ratingScore: 3,
+      }),
+    ))
+  })
+
   it('renders final decision actions for stage 4', () => {
     render(
       <EvaluationPanel
@@ -85,6 +132,33 @@ describe('EvaluationPanel', () => {
     )
     expect(screen.getByRole('button', { name: /final approve/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /final reject/i })).toBeInTheDocument()
+  })
+
+  it('submits impact rating on stage 4 final approve', async () => {
+    mockDecide.mockResolvedValue({ ok: true, data: undefined })
+    render(
+      <EvaluationPanel
+        ideaId={44}
+        currentStage="stage_4_final_executive_decision"
+        currentOutcome="in_progress"
+        isTerminal={false}
+        onSuccess={onSuccess}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /final approve/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /impact rating 5 of 5/i }))
+    fireEvent.change(screen.getByLabelText(/decision comment/i), { target: { value: 'High business value.' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirm decision/i }))
+
+    await waitFor(() => expect(mockDecide).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ideaId: 44,
+        decision: 'final_approve',
+        comment: 'High business value.',
+        ratingScore: 5,
+      }),
+    ))
   })
 
   it('renders complete state for terminal ideas', () => {

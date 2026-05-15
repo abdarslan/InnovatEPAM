@@ -71,6 +71,20 @@ function attachmentLabel(count: number) {
   return count === 1 ? '1 attachment' : `${count} attachments`
 }
 
+function hasCompletedScores(idea: IdeaListItem) {
+  return idea.alignmentRating !== null
+    && idea.alignmentRating !== undefined
+    && idea.feasibilityRating !== null
+    && idea.feasibilityRating !== undefined
+    && idea.impactRating !== null
+    && idea.impactRating !== undefined
+}
+
+function buildScoreSummary(idea: IdeaListItem) {
+  if (!hasCompletedScores(idea)) return null
+  return `Alignment ${idea.alignmentRating}/5 | Feasibility ${idea.feasibilityRating}/5 | Impact ${idea.impactRating}/5`
+}
+
 export default function IdeaRow({ idea, currentUserId, currentUserRole, onDeleted }: IdeaRowProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [detail, setDetail] = useState<IdeaDetail | null>(null)
@@ -80,6 +94,9 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
 
   const isOwner = currentUserId === idea.submitterId
   const canDelete = isOwner || currentUserRole === 'admin'
+  const submitterDisplayName =
+    currentUserRole === 'admin' && idea.isSubmitterAnonymous ? 'Anonymous' : idea.submitterName
+  const completedScoreSummary = buildScoreSummary(idea)
 
   async function handleOpenChange(open: boolean) {
     setIsOpen(open)
@@ -123,7 +140,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
               <span className="rounded bg-surface px-1.5 py-0.5 border border-[--color-border]">
                 {CATEGORY_LABELS[idea.category]}
               </span>
-              <span>{idea.submitterName}</span>
+              <span>{submitterDisplayName}</span>
               <span>{'\u00B7'}</span>
               <span>{formatDate(idea.createdAt)}</span>
               {idea.hasAttachment && (
@@ -135,7 +152,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
             </div>
           </div>
           <div className="ml-3 flex items-center gap-2 shrink-0">
-            <StatusBadge status={idea.status} />
+            <StatusBadge status={idea.status} scoreReady={completedScoreSummary !== null} />
             <span className="text-[--color-text-muted]" aria-hidden="true">
               {isOpen ? '\u25BE' : '\u25B8'}
             </span>
@@ -157,6 +174,12 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
             )}
             {detail && (
               <>
+                {completedScoreSummary && (
+                  <p className="rounded border border-border bg-muted/40 px-2 py-1 text-xs text-foreground">
+                    Scores: {completedScoreSummary}
+                  </p>
+                )}
+
                 <p className="text-sm text-[--color-text] whitespace-pre-wrap">{detail.description}</p>
 
                 {detail.dynamicFields.length > 0 && (

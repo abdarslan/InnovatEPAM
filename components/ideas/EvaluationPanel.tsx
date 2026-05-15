@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import type { DecisionType, EvaluationOutcome, EvaluationStage } from '@/actions/ideas'
 import { decideIdeaStageAction } from '@/actions/ideas'
 import { Button } from '@/components/ui/button'
+import { RatingControl } from '@/components/ideas/RatingControl'
 
 type Props = {
   ideaId: number
@@ -21,17 +22,43 @@ const STAGE_LABELS: Record<EvaluationStage, string> = {
   stage_4_final_executive_decision: 'Stage 4 Final Executive Decision',
 }
 
+const STAGE_RATING_LABELS: Partial<Record<EvaluationStage, string>> = {
+  stage_2_department_review: 'Alignment Rating',
+  stage_3_feasibility: 'Feasibility Rating',
+  stage_4_final_executive_decision: 'Impact Rating',
+}
+
 export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTerminal, onSuccess }: Props) {
   const [isPending, startTransition] = useTransition()
   const [activeAction, setActiveAction] = useState<DecisionType | null>(null)
   const [comment, setComment]           = useState('')
   const [commentError, setCommentError] = useState<string | null>(null)
+  const [ratingScore, setRatingScore] = useState<number | null>(null)
+  const [ratingError, setRatingError] = useState<string | null>(null)
+
+  function decisionRequiresRating(stage: EvaluationStage, decision: DecisionType) {
+    if (stage === 'stage_2_department_review' || stage === 'stage_3_feasibility') {
+      return decision === 'approve_next'
+    }
+
+    if (stage === 'stage_4_final_executive_decision') {
+      return decision === 'final_approve' || decision === 'final_reject'
+    }
+
+    return false
+  }
 
   function handleDecision(decision: DecisionType) {
     setCommentError(null)
+    setRatingError(null)
 
     if (!comment.trim()) {
       setCommentError('Decision comment is required.')
+      return
+    }
+
+    if (decisionRequiresRating(currentStage, decision) && ratingScore === null) {
+      setRatingError('Please select a rating before confirming.')
       return
     }
 
@@ -40,12 +67,14 @@ export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTermin
         ideaId,
         decision,
         comment: comment.trim(),
+        ratingScore: ratingScore ?? undefined,
       })
 
       if (result.ok) {
         toast.success('Decision saved.')
         setActiveAction(null)
         setComment('')
+        setRatingScore(null)
         onSuccess()
       } else {
         toast.error(result.error)
@@ -99,6 +128,26 @@ export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTermin
             }}
             className="space-y-2"
           >
+            {STAGE_RATING_LABELS[currentStage] && (
+              <div>
+                <RatingControl
+                  idPrefix={`rating-${ideaId}`}
+                  label={STAGE_RATING_LABELS[currentStage] as string}
+                  value={ratingScore}
+                  disabled={isPending}
+                  onChange={(value) => {
+                    setRatingScore(value)
+                    setRatingError(null)
+                  }}
+                />
+                {ratingError && (
+                  <p role="alert" className="mt-1 text-sm text-destructive">
+                    {ratingError}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
               <label htmlFor={`comment-${ideaId}`} className="block text-sm font-medium mb-1">
                 Decision comment (required)

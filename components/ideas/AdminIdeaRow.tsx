@@ -46,6 +46,8 @@ export function AdminIdeaRow({ idea }: Props) {
     }
   }
 
+  const submitterDisplayName = idea.isSubmitterAnonymous ? 'Anonymous' : idea.submitterName
+
   return (
     <li className="rounded border border-border bg-card p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
@@ -54,7 +56,7 @@ export function AdminIdeaRow({ idea }: Props) {
             {idea.title}
           </h3>
           <p className="text-sm text-muted-foreground">
-            {idea.category.replace('_', ' ')} · by {idea.submitterName} ·{' '}
+            {idea.category.replace('_', ' ')} · by {submitterDisplayName} ·{' '}
             {new Date(idea.createdAt).toLocaleDateString()}
           </p>
           <p className="text-xs text-muted-foreground">

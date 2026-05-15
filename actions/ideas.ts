@@ -10,12 +10,14 @@ import {
   ideaDecisionEvents,
   ideaEvaluations,
   ideaFieldValues,
+  ideaRatings,
   users,
   IDEA_STATUSES,
   type IdeaCategory,
   type IdeaDecisionType,
   type IdeaEvaluationOutcome,
   type IdeaEvaluationStage,
+  type IdeaRatingStage,
   type IdeaStatus,
 } from '@/lib/db/schema'
 import { requireAuth } from '@/lib/auth/session'
@@ -30,9 +32,10 @@ import {
   startReviewSchema,
   evaluateIdeaSchema,
   decideIdeaStageSchema,
+  validateDecisionRatingRequirement,
   validateAttachmentFiles,
 } from '@/lib/ideas/validation'
-import { resolveStageDecision, validateTransition } from '@/lib/ideas/transitions'
+import { getStageRatingLabel, resolveStageDecision, validateTransition, type StageRatingLabel } from '@/lib/ideas/transitions'
 import { getActiveRulesForCategory, validateDynamicFieldValues } from '@/lib/ideas/category-fields'
 
 export type { IdeaStatus }
@@ -94,11 +97,15 @@ export type IdeaListItem = {
   currentOutcome: EvaluationOutcome
   isTerminal: boolean
   submitterName: string
+  isSubmitterAnonymous?: boolean
   submitterId: number
   createdAt: number
   updatedAt: number
   hasAttachment: boolean
   attachmentCount: number
+  alignmentRating?: number | null
+  feasibilityRating?: number | null
+  impactRating?: number | null
 }
 
 export type IdeaEvaluationForSubmitter = {
@@ -140,6 +147,8 @@ export type IdeaTimelineEntry = {
   decidedAt: number
   comment?: string
   decidedByUser?: string
+  ratingScore?: number
+  ratingLabel?: StageRatingLabel
 }
 
 function mapOutcomeToLegacyStatus(outcome: EvaluationOutcome): IdeaStatus {
@@ -147,6 +156,79 @@ function mapOutcomeToLegacyStatus(outcome: EvaluationOutcome): IdeaStatus {
   if (outcome === 'final_approved') return 'accepted'
   if (outcome === 'rejected' || outcome === 'final_rejected') return 'rejected'
   return 'submitted'
+}
+
+function toRatingStage(stage: EvaluationStage): IdeaRatingStage | null {
+  if (stage === 'stage_2_department_review') return 'stage_2_department_review'
+  if (stage === 'stage_3_feasibility') return 'stage_3_feasibility'
+  if (stage === 'stage_4_final_executive_decision') return 'stage_4_final_executive_decision'
+  return null
+}
+
+function shouldAnonymizeSubmitterForAdminView(input: {
+  stage: EvaluationStage
+  outcome: EvaluationOutcome
+}): boolean {
+  void input
+  return true
+}
+
+function applyAdminAnonymization<T extends { submitterName: string; isSubmitterAnonymous?: boolean }>(
+  item: T,
+  stage: EvaluationStage,
+  outcome: EvaluationOutcome,
+): T {
+  const shouldHideIdentity = shouldAnonymizeSubmitterForAdminView({ stage, outcome })
+  if (!shouldHideIdentity) {
+    return { ...item, isSubmitterAnonymous: false }
+  }
+
+  return {
+    ...item,
+    submitterName: 'Anonymous',
+    isSubmitterAnonymous: true,
+  }
+}
+
+async function assertStageRatingIsMutable(ideaId: number, stage: EvaluationStage): Promise<ActionResult<void>> {
+  const ratingStage = toRatingStage(stage)
+  if (!ratingStage) {
+    return { ok: true, data: undefined }
+  }
+
+  const existing = await db
+    .select({ id: ideaRatings.id })
+    .from(ideaRatings)
+    .where(and(eq(ideaRatings.ideaId, ideaId), eq(ideaRatings.stage, ratingStage)))
+    .limit(1)
+
+  if (existing.length > 0) {
+    return { ok: false, error: 'RATING_ALREADY_SUBMITTED' }
+  }
+
+  return { ok: true, data: undefined }
+}
+
+async function getTimelineRatingByDecisionEventId(ideaId: number) {
+  const rows = await db
+    .select({
+      eventId: ideaDecisionEvents.id,
+      score: ideaRatings.score,
+      stage: ideaRatings.stage,
+    })
+    .from(ideaDecisionEvents)
+    .leftJoin(ideaRatings, eq(ideaDecisionEvents.ratingId, ideaRatings.id))
+    .where(eq(ideaDecisionEvents.ideaId, ideaId))
+
+  const ratingByEventId = new Map<number, { score: number; label: StageRatingLabel }>()
+  for (const row of rows) {
+    if (row.score === null || row.stage === null) continue
+    const label = getStageRatingLabel(row.stage as EvaluationStage)
+    if (!label) continue
+    ratingByEventId.set(row.eventId, { score: row.score, label })
+  }
+
+  return ratingByEventId
 }
 
 // ---------------------------------------------------------------------------
@@ -270,8 +352,9 @@ function validateUpdatedAttachmentTotals(
 // ---------------------------------------------------------------------------
 
 export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
+  let session
   try {
-    await requireAuth()
+    session = await requireAuth()
   } catch {
     return { ok: false, error: 'You must be logged in to view ideas.' }
   }
@@ -287,6 +370,9 @@ export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
         isTerminal: ideas.isTerminal,
         submitterName: users.displayName,
         submitterId: ideas.submitterId,
+        alignmentRating: ideas.alignmentRating,
+        feasibilityRating: ideas.feasibilityRating,
+        impactRating: ideas.impactRating,
         createdAt: ideas.createdAt,
         updatedAt: ideas.updatedAt,
       })
@@ -309,7 +395,7 @@ export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
 
     const data: IdeaListItem[] = rows.map((row) => {
       const attachmentCount = attachmentCounts.get(row.id) ?? 0
-      return {
+      const projected = {
         ...row,
         category: row.category as IdeaCategory,
         status: row.status as IdeaStatus,
@@ -318,7 +404,16 @@ export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
         isTerminal: Boolean(row.isTerminal),
         attachmentCount,
         hasAttachment: attachmentCount > 0,
+        alignmentRating: row.alignmentRating ?? null,
+        feasibilityRating: row.feasibilityRating ?? null,
+        impactRating: row.impactRating ?? null,
       }
+
+      if (session.role === 'admin') {
+        return applyAdminAnonymization(projected, projected.currentStage, projected.currentOutcome)
+      }
+
+      return projected
     })
     return { ok: true, data }
   } catch {
@@ -331,8 +426,9 @@ export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
 // ---------------------------------------------------------------------------
 
 export async function getIdeaDetailAction(id: number): Promise<ActionResult<IdeaDetail>> {
+  let session
   try {
-    await requireAuth()
+    session = await requireAuth()
   } catch {
     return { ok: false, error: 'You must be logged in to view ideas.' }
   }
@@ -349,6 +445,9 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
         isTerminal: ideas.isTerminal,
         submitterName: users.displayName,
         submitterId: ideas.submitterId,
+        alignmentRating: ideas.alignmentRating,
+        feasibilityRating: ideas.feasibilityRating,
+        impactRating: ideas.impactRating,
         createdAt: ideas.createdAt,
         updatedAt: ideas.updatedAt,
         evalStatus:    ideaEvaluations.status,
@@ -400,7 +499,7 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
     }))
 
     const firstAttachment = attachments[0] ?? null
-    const data: IdeaDetail = {
+    const baseData: IdeaDetail = {
       id: r.id,
       title: r.title,
       description: r.description,
@@ -422,7 +521,15 @@ export async function getIdeaDetailAction(id: number): Promise<ActionResult<Idea
       attachmentMimeType: firstAttachment?.mimeType ?? null,
       evaluation,
       dynamicFields: dynamicRows,
+      alignmentRating: r.alignmentRating ?? null,
+      feasibilityRating: r.feasibilityRating ?? null,
+      impactRating: r.impactRating ?? null,
     }
+
+    const data = session.role === 'admin'
+      ? applyAdminAnonymization(baseData, baseData.currentStage, baseData.currentOutcome)
+      : baseData
+
     return { ok: true, data }
   } catch {
     return { ok: false, error: 'Failed to load idea. Please try again.' }
@@ -693,6 +800,7 @@ export async function decideIdeaStageAction(input: {
   ideaId: number
   decision: DecisionType
   comment: string
+  ratingScore?: number
 }): Promise<ActionResult<void>> {
   let session
   try {
@@ -738,10 +846,27 @@ export async function decideIdeaStageAction(input: {
     return { ok: false, error: 'INVALID_TRANSITION' }
   }
 
+  const ratingValidation = validateDecisionRatingRequirement({
+    stage: currentState.stage,
+    decision: parsed.data.decision,
+    ratingScore: input.ratingScore,
+  })
+  if (!ratingValidation.ok) {
+    return { ok: false, error: ratingValidation.error }
+  }
+
+  const mutabilityResult = await assertStageRatingIsMutable(parsed.data.ideaId, currentState.stage)
+  if (!mutabilityResult.ok) {
+    return mutabilityResult
+  }
+
   const now = Date.now()
   const eventOutcome: EvaluationOutcome =
     parsed.data.decision === 'approve_next' ? 'approved_to_next_stage' : next.nextOutcome
   const nextStatus = mapOutcomeToLegacyStatus(next.nextOutcome)
+
+  const stageLabel = getStageRatingLabel(currentState.stage)
+  const shouldPersistRating = stageLabel !== null && ratingValidation.ok && input.ratingScore !== undefined
 
   try {
     db.transaction((tx) => {
@@ -752,6 +877,24 @@ export async function decideIdeaStageAction(input: {
         .all()
       const nextSequence = (seqRows[0]?.maxSequence ?? 0) + 1
 
+      let insertedRatingId: number | null = null
+      if (shouldPersistRating) {
+        const ratingScore = input.ratingScore as number
+        const ratingRows = tx
+          .insert(ideaRatings)
+          .values({
+            ideaId: parsed.data.ideaId,
+            stage: currentState.stage as IdeaRatingStage,
+            raterId: session.userId,
+            score: ratingScore,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .returning({ id: ideaRatings.id })
+          .all()
+        insertedRatingId = ratingRows[0]?.id ?? null
+      }
+
       const updated = tx
         .update(ideas)
         .set({
@@ -761,6 +904,18 @@ export async function decideIdeaStageAction(input: {
           status: nextStatus,
           reviewerId: idea.reviewerId ?? session.userId,
           reviewStartedAt: idea.reviewerId ? undefined : now,
+          alignmentRating:
+            currentState.stage === 'stage_2_department_review' && input.ratingScore !== undefined
+              ? input.ratingScore
+              : undefined,
+          feasibilityRating:
+            currentState.stage === 'stage_3_feasibility' && input.ratingScore !== undefined
+              ? input.ratingScore
+              : undefined,
+          impactRating:
+            currentState.stage === 'stage_4_final_executive_decision' && input.ratingScore !== undefined
+              ? input.ratingScore
+              : undefined,
           updatedAt: now,
         })
         .where(
@@ -784,6 +939,7 @@ export async function decideIdeaStageAction(input: {
           decisionType: parsed.data.decision,
           outcome: eventOutcome,
           comment: parsed.data.comment,
+          ratingId: insertedRatingId,
           decidedByUserId: session.userId,
           decidedAt: now,
           sequence: nextSequence,
@@ -860,9 +1016,11 @@ export async function getIdeaTimelineAction(
   }
 
   const canViewPrivilegedFields = session.role === 'admin' || session.userId === ideaRows[0].submitterId
+  const ratingByEventId = await getTimelineRatingByDecisionEventId(parsed.data.ideaId)
 
   const rows = await db
     .select({
+      id: ideaDecisionEvents.id,
       sequence: ideaDecisionEvents.sequence,
       stage: ideaDecisionEvents.stage,
       decisionType: ideaDecisionEvents.decisionType,
@@ -883,6 +1041,12 @@ export async function getIdeaTimelineAction(
       decisionType: row.decisionType as IdeaDecisionType,
       outcome: row.outcome as EvaluationOutcome,
       decidedAt: row.decidedAt,
+    }
+
+    const rating = ratingByEventId.get(row.id)
+    if (rating) {
+      base.ratingScore = rating.score
+      base.ratingLabel = rating.label
     }
 
     if (canViewPrivilegedFields) {
@@ -1029,6 +1193,9 @@ export async function getAdminIdeasAction(
         isTerminal:      ideas.isTerminal,
         submitterName:   users.displayName,
         submitterId:     ideas.submitterId,
+        alignmentRating: ideas.alignmentRating,
+        feasibilityRating: ideas.feasibilityRating,
+        impactRating: ideas.impactRating,
         createdAt:       ideas.createdAt,
         updatedAt:       ideas.updatedAt,
         reviewerId:      ideas.reviewerId,
@@ -1098,42 +1265,52 @@ export async function getAdminIdeasAction(
 
     const adminMap = new Map<number, string>()
     if (adminIds.size > 0) {
-      const adminRows = await db.select({ id: users.id, displayName: users.displayName }).from(users)
+      const adminRows = await db
+        .select({ id: users.id, displayName: users.displayName })
+        .from(users)
+        .where(inArray(users.id, Array.from(adminIds)))
       for (const a of adminRows) {
-        if (adminIds.has(a.id)) adminMap.set(a.id, a.displayName)
+        adminMap.set(a.id, a.displayName)
       }
     }
 
-    const data: AdminIdeaListItem[] = rows.reverse().map((r) => ({
-      id:              r.id,
-      title:           r.title,
-      category:        r.category as IdeaCategory,
-      status:          r.status as IdeaStatus,
-      currentStage:    r.currentStage as EvaluationStage,
-      currentOutcome:  r.currentOutcome as EvaluationOutcome,
-      isTerminal:      Boolean(r.isTerminal),
-      submitterName:   r.submitterName,
-      submitterId:     r.submitterId,
-      createdAt:       r.createdAt,
-      updatedAt:       r.updatedAt,
-      hasAttachment:   false, // attachment count not fetched in admin list for performance
-      attachmentCount: 0,
-      reviewerName:    r.reviewerId ? (adminMap.get(r.reviewerId) ?? null) : null,
-      reviewStartedAt: r.reviewStartedAt ?? null,
-      latestDecisionAt: latestDecisionByIdeaId.get(r.id)?.decidedAt ?? null,
-      latestDecidedByUserName: (() => {
-        const decidedByUserId = latestDecisionByIdeaId.get(r.id)?.decidedByUserId
-        return decidedByUserId ? (adminMap.get(decidedByUserId) ?? null) : null
-      })(),
-      evaluation: r.evalStatus !== null && r.evalAdminId !== null && r.evalCreatedAt !== null
-        ? {
-          adminName: adminMap.get(r.evalAdminId) ?? 'Admin',
-          status: r.evalStatus as 'accepted' | 'rejected',
-          comment: r.evalComment ?? null,
-          createdAt: r.evalCreatedAt,
-        }
-        : null,
-    }))
+    const data: AdminIdeaListItem[] = rows.reverse().map((r) => {
+      const projected = {
+        id:              r.id,
+        title:           r.title,
+        category:        r.category as IdeaCategory,
+        status:          r.status as IdeaStatus,
+        currentStage:    r.currentStage as EvaluationStage,
+        currentOutcome:  r.currentOutcome as EvaluationOutcome,
+        isTerminal:      Boolean(r.isTerminal),
+        submitterName:   r.submitterName,
+        submitterId:     r.submitterId,
+        createdAt:       r.createdAt,
+        updatedAt:       r.updatedAt,
+        hasAttachment:   false,
+        attachmentCount: 0,
+        alignmentRating: r.alignmentRating ?? null,
+        feasibilityRating: r.feasibilityRating ?? null,
+        impactRating: r.impactRating ?? null,
+        reviewerName:    r.reviewerId ? (adminMap.get(r.reviewerId) ?? null) : null,
+        reviewStartedAt: r.reviewStartedAt ?? null,
+        latestDecisionAt: latestDecisionByIdeaId.get(r.id)?.decidedAt ?? null,
+        latestDecidedByUserName: (() => {
+          const decidedByUserId = latestDecisionByIdeaId.get(r.id)?.decidedByUserId
+          return decidedByUserId ? (adminMap.get(decidedByUserId) ?? null) : null
+        })(),
+        evaluation: r.evalStatus !== null && r.evalAdminId !== null && r.evalCreatedAt !== null
+          ? {
+            adminName: adminMap.get(r.evalAdminId) ?? 'Admin',
+            status: r.evalStatus as 'accepted' | 'rejected',
+            comment: r.evalComment ?? null,
+            createdAt: r.evalCreatedAt,
+          }
+          : null,
+      }
+
+      return applyAdminAnonymization(projected, projected.currentStage, projected.currentOutcome)
+    })
 
     return { ok: true, data }
   } catch {
