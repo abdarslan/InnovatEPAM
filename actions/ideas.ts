@@ -169,9 +169,8 @@ function shouldAnonymizeSubmitterForAdminView(input: {
   stage: EvaluationStage
   outcome: EvaluationOutcome
 }): boolean {
-  if (input.outcome === 'final_approved') return false
-  if (input.outcome === 'rejected' || input.outcome === 'final_rejected') return true
-  return input.stage !== 'stage_1_triage'
+  void input
+  return true
 }
 
 function applyAdminAnonymization<T extends { submitterName: string; isSubmitterAnonymous?: boolean }>(
@@ -353,8 +352,9 @@ function validateUpdatedAttachmentTotals(
 // ---------------------------------------------------------------------------
 
 export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
+  let session
   try {
-    await requireAuth()
+    session = await requireAuth()
   } catch {
     return { ok: false, error: 'You must be logged in to view ideas.' }
   }
@@ -395,7 +395,7 @@ export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
 
     const data: IdeaListItem[] = rows.map((row) => {
       const attachmentCount = attachmentCounts.get(row.id) ?? 0
-      return {
+      const projected = {
         ...row,
         category: row.category as IdeaCategory,
         status: row.status as IdeaStatus,
@@ -408,6 +408,12 @@ export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>> {
         feasibilityRating: row.feasibilityRating ?? null,
         impactRating: row.impactRating ?? null,
       }
+
+      if (session.role === 'admin') {
+        return applyAdminAnonymization(projected, projected.currentStage, projected.currentOutcome)
+      }
+
+      return projected
     })
     return { ok: true, data }
   } catch {
@@ -1259,9 +1265,12 @@ export async function getAdminIdeasAction(
 
     const adminMap = new Map<number, string>()
     if (adminIds.size > 0) {
-      const adminRows = await db.select({ id: users.id, displayName: users.displayName }).from(users)
+      const adminRows = await db
+        .select({ id: users.id, displayName: users.displayName })
+        .from(users)
+        .where(inArray(users.id, Array.from(adminIds)))
       for (const a of adminRows) {
-        if (adminIds.has(a.id)) adminMap.set(a.id, a.displayName)
+        adminMap.set(a.id, a.displayName)
       }
     }
 

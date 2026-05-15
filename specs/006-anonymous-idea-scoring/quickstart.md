@@ -228,3 +228,15 @@ A: Implementation team will contact you within 2 business days of approval compl
 
 **Q: Can rejected idea scores be shared with me?**
 A: No, rejected ideas are not scored. Stage 1 is a gate; only spam/appropriate filter, not a merit evaluation.
+
+---
+
+## Validation Notes
+
+Validated against current implementation on May 15, 2026:
+
+- Stage 2, Stage 3, and Stage 4 decisions require ratings before progression/finalization.
+- Admin list/detail anonymization is preserved for evaluation stages and rejected final states.
+- Final approved ideas unmask submitter identity for admin views.
+- Timeline responses include stage-specific rating labels (`Alignment`, `Feasibility`, `Impact`) for scored decisions.
+- Completed idea list/detail projections include persisted score fields (`alignmentRating`, `feasibilityRating`, `impactRating`).

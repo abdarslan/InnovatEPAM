@@ -41,7 +41,7 @@ describe('AdminIdeaList anonymization', () => {
     expect(screen.getByText(/by anonymous/i)).toBeInTheDocument()
   })
 
-  it('keeps submitter identity visible for stage 1 entries', () => {
+  it('also masks submitter identity for stage 1 entries', () => {
     render(
       <AdminIdeaList
         ideas={[
@@ -55,6 +55,7 @@ describe('AdminIdeaList anonymization', () => {
       />,
     )
 
-    expect(screen.getByText(/by visible user/i)).toBeInTheDocument()
+    expect(screen.queryByText(/visible user/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/by anonymous/i)).toBeInTheDocument()
   })
 })

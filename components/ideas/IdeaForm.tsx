@@ -135,7 +135,6 @@ export default function IdeaForm({
     })
     setDynamicValues(draftDefaultValues.fieldValues ?? {})
     setCurrentDraftId(draftDefaultValues.id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftDefaultValues?.id])
 
   useEffect(() => {

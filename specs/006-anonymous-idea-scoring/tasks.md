@@ -102,16 +102,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T031 [P] [US3] Add stage 3 rating-required validation test in tests/integration/anonymous-evaluation.test.ts
-- [ ] T032 [P] [US3] Add stage 3 evaluation panel feasibility test in components/ideas/EvaluationPanel.test.tsx
-- [ ] T033 [P] [US3] Add stage 3 timeline-rating association test in components/ideas/IdeaTimeline.test.tsx
+- [X] T031 [P] [US3] Add stage 3 rating-required validation test in tests/integration/anonymous-evaluation.test.ts
+- [X] T032 [P] [US3] Add stage 3 evaluation panel feasibility test in components/ideas/EvaluationPanel.test.tsx
+- [X] T033 [P] [US3] Add stage 3 timeline-rating association test in components/ideas/IdeaTimeline.test.tsx
 
 ### Implementation for User Story 3
 
-- [ ] T034 [US3] Add stage 3 feasibility rating flow to evaluation panel in components/ideas/EvaluationPanel.tsx
-- [ ] T035 [US3] Persist stage 3 feasibility rating immutably in actions/ideas.ts
-- [ ] T036 [US3] Write stage 3 timeline event with feasibility label in actions/ideas.ts
-- [ ] T037 [US3] Update stage 3 advance action validation for required rating in actions/ideas.ts
+- [X] T034 [US3] Add stage 3 feasibility rating flow to evaluation panel in components/ideas/EvaluationPanel.tsx
+- [X] T035 [US3] Persist stage 3 feasibility rating immutably in actions/ideas.ts
+- [X] T036 [US3] Write stage 3 timeline event with feasibility label in actions/ideas.ts
+- [X] T037 [US3] Update stage 3 advance action validation for required rating in actions/ideas.ts
 
 **Checkpoint**: US3 independently functional and testable.
 
@@ -125,16 +125,16 @@
 
 ### Tests for User Story 4
 
-- [ ] T038 [P] [US4] Add stage 4 rating-required finalization test in tests/integration/anonymous-evaluation.test.ts
-- [ ] T039 [P] [US4] Add stage 4 evaluation panel impact test in components/ideas/EvaluationPanel.test.tsx
-- [ ] T040 [P] [US4] Add stage 4 completion timeline event test in components/ideas/IdeaTimeline.test.tsx
+- [X] T038 [P] [US4] Add stage 4 rating-required finalization test in tests/integration/anonymous-evaluation.test.ts
+- [X] T039 [P] [US4] Add stage 4 evaluation panel impact test in components/ideas/EvaluationPanel.test.tsx
+- [X] T040 [P] [US4] Add stage 4 completion timeline event test in components/ideas/IdeaTimeline.test.tsx
 
 ### Implementation for User Story 4
 
-- [ ] T041 [US4] Add stage 4 impact rating flow to evaluation panel in components/ideas/EvaluationPanel.tsx
-- [ ] T042 [US4] Persist stage 4 impact rating immutably in actions/ideas.ts
-- [ ] T043 [US4] Enforce required impact rating for approve/reject finalization in actions/ideas.ts
-- [ ] T044 [US4] Apply post-finalization identity rule (approved unmask, rejected stays anonymous) in actions/ideas.ts
+- [X] T041 [US4] Add stage 4 impact rating flow to evaluation panel in components/ideas/EvaluationPanel.tsx
+- [X] T042 [US4] Persist stage 4 impact rating immutably in actions/ideas.ts
+- [X] T043 [US4] Enforce required impact rating for approve/reject finalization in actions/ideas.ts
+- [X] T044 [US4] Apply post-finalization identity rule (approved unmask, rejected stays anonymous) in actions/ideas.ts
 
 **Checkpoint**: US4 independently functional and testable.
 
@@ -148,16 +148,16 @@
 
 ### Tests for User Story 5
 
-- [ ] T045 [P] [US5] Add completed idea score visibility integration test in tests/integration/anonymous-evaluation.test.ts
-- [ ] T046 [P] [US5] Add completed idea score badge rendering test in components/ideas/IdeaRow.test.tsx
-- [ ] T047 [P] [US5] Add completed idea list score formatting test in components/ideas/IdeaListClient.test.tsx
+- [X] T045 [P] [US5] Add completed idea score visibility integration test in tests/integration/anonymous-evaluation.test.ts
+- [X] T046 [P] [US5] Add completed idea score badge rendering test in components/ideas/IdeaRow.test.tsx
+- [X] T047 [P] [US5] Add completed idea list score formatting test in components/ideas/IdeaListClient.test.tsx
 
 ### Implementation for User Story 5
 
-- [ ] T048 [US5] Add completed-score summary rendering in components/ideas/IdeaRow.tsx
-- [ ] T049 [US5] Add completed-score summary rendering in components/ideas/IdeaListClient.tsx
-- [ ] T050 [US5] Add completed-score retrieval mapping in actions/ideas.ts
-- [ ] T051 [US5] Add status-badge adjunct for score-ready completed ideas in components/ideas/StatusBadge.tsx
+- [X] T048 [US5] Add completed-score summary rendering in components/ideas/IdeaRow.tsx
+- [X] T049 [US5] Add completed-score summary rendering in components/ideas/IdeaListClient.tsx
+- [X] T050 [US5] Add completed-score retrieval mapping in actions/ideas.ts
+- [X] T051 [US5] Add status-badge adjunct for score-ready completed ideas in components/ideas/StatusBadge.tsx
 
 **Checkpoint**: US5 independently functional and testable.
 
@@ -171,16 +171,16 @@
 
 ### Tests for User Story 6
 
-- [ ] T052 [P] [US6] Add timeline rating label formatting integration test in tests/integration/anonymous-evaluation.test.ts
-- [ ] T053 [P] [US6] Add stage 1 no-rating timeline rendering test in components/ideas/IdeaTimeline.test.tsx
-- [ ] T054 [P] [US6] Add stage 2-4 rating timeline rendering test in components/ideas/IdeaTimeline.test.tsx
+- [X] T052 [P] [US6] Add timeline rating label formatting integration test in tests/integration/anonymous-evaluation.test.ts
+- [X] T053 [P] [US6] Add stage 1 no-rating timeline rendering test in components/ideas/IdeaTimeline.test.tsx
+- [X] T054 [P] [US6] Add stage 2-4 rating timeline rendering test in components/ideas/IdeaTimeline.test.tsx
 
 ### Implementation for User Story 6
 
-- [ ] T055 [US6] Add stage label + score formatting helpers in components/ideas/IdeaTimeline.tsx
-- [ ] T056 [US6] Render rating details on approval timeline entries in components/ideas/IdeaTimeline.tsx
-- [ ] T057 [US6] Ensure stage 1 timeline entries explicitly render without rating in components/ideas/IdeaTimeline.tsx
-- [ ] T058 [US6] Expose timeline rating hydration from server action responses in actions/ideas.ts
+- [X] T055 [US6] Add stage label + score formatting helpers in components/ideas/IdeaTimeline.tsx
+- [X] T056 [US6] Render rating details on approval timeline entries in components/ideas/IdeaTimeline.tsx
+- [X] T057 [US6] Ensure stage 1 timeline entries explicitly render without rating in components/ideas/IdeaTimeline.tsx
+- [X] T058 [US6] Expose timeline rating hydration from server action responses in actions/ideas.ts
 
 **Checkpoint**: US6 independently functional and testable.
 
@@ -190,12 +190,12 @@
 
 **Purpose**: Final hardening across all user stories
 
-- [ ] T059 [P] Add E2E coverage for full stage 1-4 evaluation flow in tests/e2e/anonymous-evaluation.spec.ts
-- [ ] T060 [P] Add accessibility checks for keyboard and labels in rating control tests in components/ideas/RatingControl.test.tsx
-- [ ] T061 Optimize rating/timeline query performance for dashboard list loads in actions/ideas.ts
-- [ ] T062 Validate quickstart scenarios against implementation in specs/006-anonymous-idea-scoring/quickstart.md
-- [ ] T063 Run and fix type/lint/test suite failures in package.json scripts (`npm run lint`, `npm run test`, `npm run test:e2e`)
-- [ ] T064 Create PR summarizing completed task IDs and validation evidence
+- [X] T059 [P] Add E2E coverage for full stage 1-4 evaluation flow in tests/e2e/anonymous-evaluation.spec.ts
+- [X] T060 [P] Add accessibility checks for keyboard and labels in rating control tests in components/ideas/RatingControl.test.tsx
+- [X] T061 Optimize rating/timeline query performance for dashboard list loads in actions/ideas.ts
+- [X] T062 Validate quickstart scenarios against implementation in specs/006-anonymous-idea-scoring/quickstart.md
+- [X] T063 Run and fix type/lint/test suite failures in package.json scripts (`npm run lint`, `npm run test`, `npm run test:e2e`)
+- [X] T064 Create PR summarizing completed task IDs and validation evidence
 - [ ] T065 Merge approved PR to `main` after explicit user approval via GitHub MCP tooling
 
 ---

@@ -17,16 +17,18 @@ const STATUS_CLASSES: Record<IdeaStatus, string> = {
 
 type Props = {
   status: IdeaStatus
+  scoreReady?: boolean
 }
 
-export function StatusBadge({ status }: Props) {
+export function StatusBadge({ status, scoreReady = false }: Props) {
+  const text = scoreReady ? `${STATUS_LABELS[status]} · Scored` : STATUS_LABELS[status]
   return (
     <Badge
       variant="outline"
       className={STATUS_CLASSES[status]}
       aria-label={status}
     >
-      {STATUS_LABELS[status]}
+      {text}
     </Badge>
   )
 }

@@ -35,4 +35,25 @@ describe('RatingControl', () => {
     await user.click(screen.getByRole('radio', { name: /alignment rating 4 of 5/i }))
     expect(onChange).toHaveBeenCalledWith(4)
   })
+
+  it('supports keyboard activation and exposes radiogroup label', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+
+    render(
+      <RatingControl
+        idPrefix="impact"
+        label="Impact Rating"
+        value={null}
+        onChange={onChange}
+      />,
+    )
+
+    expect(screen.getByRole('radiogroup', { name: /impact rating/i })).toBeInTheDocument()
+
+    await user.tab()
+    await user.keyboard('{Enter}')
+
+    expect(onChange).toHaveBeenCalledWith(1)
+  })
 })
