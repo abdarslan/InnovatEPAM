@@ -44,17 +44,17 @@ As an admin in stage 2 evaluation, I need to provide an alignment rating (1-5) i
 
 ### User Story 3 - Admin Rates Idea for Feasibility (Priority: P1)
 
-As an admin in stage 3 evaluation, I need to provide a feasibility rating (1-5) indicating how realistic and implementable the idea is, so that we assess technical and practical viability.
+As the assigned admin in stage 3 evaluation, I need to provide a feasibility rating (1-5) indicating how realistic and implementable the idea is, so that we assess technical and practical viability.
 
 **Why this priority**: Required for stage 3 progression; completes mid-stage scoring.
 
-**Independent Test**: Can be tested by advancing an idea to stage 3, seeing the feasibility rating control, submitting a rating, and confirming persistence. Delivers stage 3 scoring capability.
+**Independent Test**: Can be tested by advancing an idea to stage 3, seeing the feasibility rating control alongside the existing comment field, submitting a rating, and confirming persistence. Delivers stage 3 scoring capability.
 
 **Acceptance Scenarios**:
 
-1. **Given** an idea is in stage 3 evaluation, **When** the admin views the evaluation panel, **Then** a 1-5 feasibility rating control is displayed.
-2. **Given** an admin submits a feasibility rating, **When** the stage 4 progression is initiated, **Then** the feasibility rating is required and must be provided.
-3. **Given** multiple admins evaluate the same idea in stage 3, **When** each submits different feasibility ratings, **Then** all ratings are recorded separately and viewable in the timeline.
+1. **Given** an idea is in stage 3 evaluation and assigned to an admin, **When** the admin views the evaluation panel, **Then** a 1-5 feasibility rating control is displayed next to the comment field.
+2. **Given** an admin submits a feasibility rating along with a comment, **When** the stage 4 progression is initiated, **Then** the feasibility rating is required and must be provided before progression.
+3. **Given** an admin has submitted a feasibility rating, **When** viewing the idea timeline, **Then** the rating is displayed alongside the admin's approval action.
 
 ---
 
@@ -108,13 +108,21 @@ As an admin or reviewer viewing the idea evaluation timeline, I need to see whic
 
 ### Edge Cases
 
-- What happens if an idea has multiple evaluations in the same stage by different admins with different ratings? (Should all be recorded; use average, minimum, or highest for final decision?)
-- How are ratings handled if an idea is returned to a previous stage for re-evaluation? (Are previous ratings retained, cleared, or do they need re-entry?)
-- What happens when an anonymous idea completes evaluation and is later approved for implementation? (How is submitter information made available to implementation team?)
-- Can an admin see their own identity in the approval timeline for ideas they evaluated? (Or is all timeline identity hidden?)
+- What happens when an anonymous idea is approved and becomes public? (How is submitter information made available to implementation team?)
 - What happens if an idea in stage 1 (spam check with no rating) is approved vs. rejected? (How is that decision recorded without a rating?)
+- Can an admin see their own identity in the approval timeline for ideas they evaluated? (Or is all timeline identity hidden?)
+- What is the process if an admin needs to correct or update their rating after submission?
+- How are rejection decisions visually distinguished from approvals in the timeline and idea detail view?
 
-## Requirements *(mandatory)*
+## Clarifications
+
+### Session May 15, 2026
+
+- Q: How should multiple admin ratings be handled per stage? → A: One admin per stage only; each stage has exactly one assigned evaluator who submits a rating.
+- Q: When should submitter identity be revealed after evaluation completes? → A: Reveal only if idea is approved for implementation (rejected ideas remain anonymous).
+- Q: How are ratings handled if an idea is returned to a previous stage? → A: No re-evaluation—rejection at any stage is final. Ideas never return to earlier stages.
+- Q: Should admins see their own identity in the approval timeline? → A: Yes, admins see their own name for actions they completed, but submitter identity is always hidden.
+- Q: Can admins update their rating after initial submission? → A: No, ratings are immutable after submission to preserve audit trail integrity.
 
 ### Functional Requirements
 
@@ -128,6 +136,7 @@ As an admin or reviewer viewing the idea evaluation timeline, I need to see whic
 - **FR-008**: System MUST require an impact rating to be submitted before an idea can be marked as "Completed" or "Rejected" in stage 4.
 - **FR-009**: System MUST NOT require a rating submission in stage 1 (initial spam check), treating stage 1 as a preliminary gate.
 - **FR-010**: System MUST persist all submitted ratings in the database with timestamp and evaluator information.
+- **FR-010a**: System MUST treat submitted ratings as immutable—once an admin submits a rating for a stage, that rating cannot be modified or deleted.
 - **FR-011**: System MUST display all three ratings (Alignment, Feasibility, Impact) on completed ideas in the user-facing view (dashboard, detail page, list cards).
 - **FR-012**: System MUST display rating badges or summary on completed idea cards in lists and dashboards for quick visual reference.
 - **FR-013**: System MUST show each rating with consistent labeling ("Alignment", "Feasibility", "Impact") across all UI locations.
@@ -135,7 +144,7 @@ As an admin or reviewer viewing the idea evaluation timeline, I need to see whic
 - **FR-015**: System MUST display timeline entries clearly showing which stage transition occurred with the associated rating for that stage.
 - **FR-016**: System MUST show stage 1 timeline entries without rating indicators, as stage 1 has no rating requirement.
 - **FR-017**: System MUST allow admins to view their own identity in the approval timeline for accountability, even if submitter is anonymous.
-- **FR-018**: System MUST support multiple ratings per stage if multiple admins evaluate the same idea, storing each rating separately.
+- **FR-018**: System MUST enforce one rating per stage—only the assigned admin for that stage can submit the rating for that idea.
 
 ### Non-Functional Requirements
 
@@ -172,10 +181,13 @@ As an admin or reviewer viewing the idea evaluation timeline, I need to see whic
 
 - The existing idea evaluation system has 4 distinct stages (stage 1, 2, 3, 4) that already support progression.
 - Admins are the only role that submits ratings; standard users cannot rate ideas.
-- Anonymization applies only during active evaluation (stages 2-4); submitter is identifiable at submission (stage 1) and after completion.
+- Each stage (2, 3, 4) has exactly one assigned admin who evaluates and submits a rating for that stage. There is no scenario where multiple admins rate the same idea at the same stage.
+- Rejection at any stage is final—ideas do not return to earlier stages for revision. Once rejected, the idea workflow ends.
+- Ratings are submitted once and become immutable after submission; admins cannot edit or delete submitted ratings to preserve audit trail integrity.
+- Ratings are submitted as part of the stage decision/progression; each admin adds a rating in addition to leaving a comment.
 - All admins in the system should have permission to view and rate ideas (no additional role-based restrictions beyond existing admin status).
-- Ratings are submitted once per admin per stage; an admin cannot change their rating for the same stage on the same idea (or if they can, the original rating is replaced, not accumulated).
-- Stage 1 (spam check) does not require a rating because it's a preliminary gate, not part of the formal scoring system.
+- Anonymization applies only during active evaluation (stages 2-4); submitter is identifiable at submission (stage 1) and after approval for implementation.
+- Rejected ideas remain anonymous—submitter identity is never revealed, even after final rejection in stage 4.
 - The UI will use numeric 1-5 scale with consistent visual representation (e.g., stars, filled circles, or numeric input) across all three rating types.
 - Completed idea means idea has passed or been rejected after final evaluation (stage 4); at this point, the submitter may be unmasked or idea becomes public-facing.
 
