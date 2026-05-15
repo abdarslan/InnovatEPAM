@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { getIdeaDetailAction } from '@/actions/ideas'
-import type { IdeaAttachmentMeta, IdeaListItem, IdeaDetail } from '@/actions/ideas'
+import { getIdeaDetailAction, getIdeaTimelineAction } from '@/actions/ideas'
+import type { IdeaAttachmentMeta, IdeaListItem, IdeaDetail, IdeaTimelineEntry } from '@/actions/ideas'
 import type { IdeaCategory } from '@/lib/db/schema'
 import Link from 'next/link'
 import { StatusBadge } from '@/components/ideas/StatusBadge'
+import { IdeaTimeline } from '@/components/ideas/IdeaTimeline'
 
 const CATEGORY_LABELS: Record<IdeaCategory, string> = {
   process_improvement: 'Process Improvement',
@@ -73,6 +74,7 @@ function attachmentLabel(count: number) {
 export default function IdeaRow({ idea, currentUserId, currentUserRole, onDeleted }: IdeaRowProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [detail, setDetail] = useState<IdeaDetail | null>(null)
+  const [timeline, setTimeline] = useState<IdeaTimelineEntry[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -81,15 +83,28 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
 
   async function handleOpenChange(open: boolean) {
     setIsOpen(open)
-    if (open && !detail) {
+    if (open && (!detail || !timeline)) {
       setIsLoading(true)
       setLoadError(null)
-      const result = await getIdeaDetailAction(idea.id)
+
+      const [detailResult, timelineResult] = await Promise.all([
+        getIdeaDetailAction(idea.id),
+        getIdeaTimelineAction({ ideaId: idea.id }),
+      ])
+
       setIsLoading(false)
-      if (result.ok) {
-        setDetail(result.data)
+
+      if (detailResult.ok) {
+        setDetail(detailResult.data)
       } else {
-        setLoadError(result.error)
+        setLoadError(detailResult.error)
+        return
+      }
+
+      if (timelineResult.ok) {
+        setTimeline(timelineResult.data)
+      } else {
+        setLoadError(timelineResult.error)
       }
     }
   }
@@ -220,6 +235,8 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                     )}
                   </div>
                 )}
+
+                {timeline && <IdeaTimeline entries={timeline} />}
 
                 <div className="flex items-center gap-3 pt-1">
                   {isOwner && (
