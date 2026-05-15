@@ -1,169 +1,214 @@
 # Tasks: Idea Evaluation Workflow
 
-**Feature**: `003-idea-evaluation-workflow` | **Branch**: `003-idea-evaluation-workflow` | **Date**: 2026-05-14
-
-**Input**: Design documents from `specs/003-idea-evaluation-workflow/`
-
-**References**: [spec.md](spec.md) · [plan.md](plan.md) · [data-model.md](data-model.md) · [contracts/server-actions.md](contracts/server-actions.md) · [research.md](research.md) · [quickstart.md](quickstart.md)
-
-## Format: `[ID] [P?] [Story?] Description`
-
-- **[P]**: Parallelisable — different files, no unresolved dependencies
-- **[US1–US3]**: User story this task belongs to
-- File paths are relative to repository root
-
----
+**Input**: Design documents from `/specs/003-idea-evaluation-workflow/`
+**Prerequisites**: `plan.md` (required), `spec.md` (required), `research.md`, `data-model.md`, `contracts/server-actions.md`, `quickstart.md`
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Install shadcn/ui Badge + Toast components (copy-into-repo pattern, no new npm deps) and wire the Toaster into the root layout before any feature code is written.
+**Purpose**: Prepare baseline documentation and test scaffolding used by all stories.
 
-- [X] T001 Install shadcn/ui `badge` and `toast` components: run `npx shadcn@latest add badge` then `npx shadcn@latest add toast`; confirm `components/ui/badge.tsx`, `components/ui/toast.tsx`, `components/ui/toaster.tsx`, and `components/ui/use-toast.ts` are generated with no new entries in `package.json` dependencies
-- [X] T002 [P] Add `<Toaster />` to `app/layout.tsx` — import from `@/components/ui/toaster`; place inside `<body>` alongside existing layout children; confirm the dev server renders without errors
+- [X] T001 Create ADR for append-only decision events and server-side visibility policy in `docs/adrs/adr-0010-idea-evaluation-event-log-and-visibility.md`
+- [X] T002 [P] Create integration test folder and placeholder spec file in `tests/integration/ideas/.gitkeep`
+- [X] T003 [P] Create E2E test placeholder for workflow in `tests/e2e/idea-evaluation-workflow.spec.ts`
+- [X] T004 [P] Add task-scope test notes for this feature in `specs/003-idea-evaluation-workflow/quickstart.md`
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Database schema changes, Drizzle migration, state machine guard, and Zod schema extensions. ALL must be complete before any user story implementation begins.
+**Purpose**: Implement shared data model, transition rules, and action contracts required by all user stories.
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete.
+**CRITICAL**: No user story implementation starts before this phase completes.
 
-- [X] T003 Extend `lib/db/schema.ts`
-- [X] T004 Generate Drizzle migration and apply
-- [X] T005 [P] Create `lib/ideas/transitions.ts` — define `ALLOWED_TRANSITIONS: Record<IdeaStatus, IdeaStatus[]>` with `submitted: ['under_review']`, `under_review: ['accepted', 'rejected']`, `accepted: []`, `rejected: []`; export `validateTransition(from: IdeaStatus, to: IdeaStatus): boolean` that returns `ALLOWED_TRANSITIONS[from].includes(to)`; no external imports
-- [X] T006 [P] Extend `lib/ideas/validation.ts` — add `startReviewSchema` (`z.object({ ideaId: z.number().int().positive() })`); add `evaluateIdeaSchema` as a Zod discriminated union on `status`: `'accepted'` branch has `ideaId`, optional `comment` max 1000 chars; `'rejected'` branch has `ideaId`, required `comment` min 1 ("Rejection reason is required") max 1000; export both schemas and infer `EvaluateIdeaInput` type
-- [X] T007 [P] Add shared types to `actions/ideas.ts` — export `IdeaStatus` type (re-export from schema or inline); extend `IdeaListItem` with `status: IdeaStatus` field; add `AdminIdeaListItem` type (extends `IdeaListItem` with `reviewerName: string | null`, `reviewStartedAt: number | null`, `evaluation: { adminName: string; status: 'accepted' | 'rejected'; comment: string | null; createdAt: number } | null`); add `IdeaEvaluationForSubmitter` type (`{ status: 'accepted' | 'rejected'; comment: string | null; createdAt: number }`)
+- [X] T005 Add stage/outcome enums and current state fields to idea schema in `lib/db/schema.ts`
+- [X] T006 Add immutable decision event table schema in `lib/db/schema.ts`
+- [X] T007 Create migration for stage fields and decision events in `lib/db/migrations/0006_idea_evaluation_pipeline.sql`
+- [X] T008 [P] Implement centralized transition guard for allowed stage moves in `lib/ideas/transitions.ts`
+- [X] T009 [P] Implement Zod decision validation with mandatory comments in `lib/ideas/validation.ts`
+- [X] T010 Update shared action/result and list item types for stage/outcome model in `actions/ideas.ts`
 
-**Checkpoint**: Schema migrated, transition guard in place, validation schemas defined, shared types extended — user story implementation can now begin.
-
----
-
-## Phase 3: User Story 1 — Admin Reviews a Submitted Idea (Priority: P1) 🎯 MVP
-
-**Goal**: Admin users can visit `/admin/ideas`, see all ideas, start review on a submitted idea, then accept or reject it with an optional/required comment. Status transitions are enforced server-side. In-place row updates and toast notifications on success.
-
-**Independent Test**: Log in as admin → navigate to `/admin/ideas` → click Start Review on a Submitted idea → confirm row updates to Under Review → click Reject, enter a reason → confirm row updates to Rejected and toast appears. Attempting the same transitions as a non-admin returns an error.
-
-### Implementation
-
-- [X] T008 [US1] Implement `startReviewAction(ideaId: number)` in `actions/ideas.ts` — `requireAuth()`; verify `session.role === 'admin'` or return `{ ok: false, error: 'FORBIDDEN' }`; load idea by `ideaId`, return not-found if absent; call `validateTransition(idea.status, 'under_review')`, return `{ ok: false, error: 'Invalid status transition.' }` if false; `db.update(ideas).set({ status: 'under_review', reviewerId: session.userId, reviewStartedAt: Date.now() }).where(eq(ideas.id, ideaId))`; return `{ ok: true }` on success; wrap in try/catch returning `{ ok: false, error: 'Failed to start review. Please try again.' }` on DB error; MUST NOT throw
-- [X] T009 [P] [US1] Implement `evaluateIdeaAction(payload)` in `actions/ideas.ts` — `requireAuth()`; verify admin role; `evaluateIdeaSchema.safeParse(payload)` → return Zod error message if invalid; load idea; call `validateTransition(idea.status, payload.status)`, return transition error if false; use `db.transaction()` to: (a) `db.update(ideas).set({ status: payload.status })`, (b) `db.insert(ideaEvaluations).values({ ideaId, adminId: session.userId, status: payload.status, comment: payload.comment ?? null, createdAt: Date.now() })`; return `{ ok: true }` on success; catch and return `{ ok: false, error: 'Failed to save evaluation. Please try again.' }`; MUST NOT throw
-- [X] T010 [P] [US1] Implement `getAdminIdeasAction(statusFilter?: IdeaStatus)` in `actions/ideas.ts` — `requireAuth()`; verify admin role; Drizzle query: left join `users` (as submitter on `submitter_id`), left join `users` (as reviewer on `reviewer_id`), left join `ideaEvaluations`, left join `users` (as evaluator on `evaluation.admin_id`); when `statusFilter` is provided and is a valid `IdeaStatus` value add `.where(eq(ideas.status, statusFilter))`; order by `ideas.createdAt DESC`; map to `AdminIdeaListItem[]`; return `{ ok: true, data }` or `{ ok: false, error }`
-- [X] T011 [P] [US1] Create `components/ideas/EvaluationPanel.tsx` — Client Component (`'use client'`); accepts props: `ideaId: number`, `currentStatus: IdeaStatus`, `onSuccess: () => void`; renders contextually: if `currentStatus === 'submitted'` show a "Start Review" button that calls `startReviewAction(ideaId)` on click; if `currentStatus === 'under_review'` show "Accept" button (calls `evaluateIdeaAction({ ideaId, status: 'accepted', comment })`) and "Reject" button (opens comment textarea required for rejection, then calls `evaluateIdeaAction`); use `react-hook-form` + `zodResolver(evaluateIdeaSchema)` for the Accept/Reject form; show inline field-level validation errors; on success call `onSuccess()` and show success toast via `useToast()`; if `currentStatus` is `'accepted'` or `'rejected'` render a read-only label "Evaluation complete"; buttons must be `disabled` during pending submission
-- [X] T012 [P] [US1] Create `components/ideas/EvaluationPanel.test.tsx` — test: "Start Review" button renders for `submitted` status; clicking it calls `startReviewAction` with correct `ideaId`; "Accept" and "Reject" buttons render for `under_review` status; submitting Reject without comment shows "Rejection reason is required" error; submitting with comment calls `evaluateIdeaAction` with `{ status: 'rejected', comment }`; action error rendered in UI; `onSuccess` prop called on `{ ok: true }` response; read-only label rendered for `accepted` / `rejected` status
-- [X] T013 [P] [US1] Create `components/ideas/AdminIdeaRow.tsx` — Client Component (`'use client'`); accepts `idea: AdminIdeaListItem` prop; displays title, category, submitter name, `createdAt` date, and current status; renders `<EvaluationPanel ideaId={idea.id} currentStatus={idea.status} onSuccess={handleSuccess} />`; `handleSuccess` refreshes the row data in-place using `router.refresh()` (Next.js `useRouter`) so the parent Server Component re-fetches without a full page reload (FR-019); show `reviewerName` and `reviewStartedAt` when status is `under_review`; show evaluation `adminName`, `comment`, and `createdAt` when evaluation is present
-- [X] T014 [P] [US1] Create `components/ideas/AdminIdeaRow.test.tsx` — test: row renders idea title, category, submitter name, and status; `EvaluationPanel` is present; `onSuccess` triggers `router.refresh()` (mock `useRouter`); evaluation details (admin name, comment) rendered when `evaluation` is non-null; reviewer name and timestamp rendered when `status === 'under_review'`
-- [X] T015 [US1] Create `components/ideas/AdminIdeaList.tsx` — Server Component; accepts `ideas: AdminIdeaListItem[]` prop and optional `activeFilter?: IdeaStatus` prop; maps ideas to `<AdminIdeaRow>`; renders empty state "No ideas found." when array is empty; filter UI is a `<select>` with options for all 4 statuses plus "All" (filter UI wired in US3 Phase 5 — for now render the select but do not handle onChange)
-- [X] T016 [US1] Create `app/(protected)/admin/ideas/page.tsx` — Server Component; get session via `getSession()`; if `session.role !== 'admin'` redirect to `/access-denied`; call `getAdminIdeasAction()`; on `{ ok: false }` render error message; on success render `<AdminIdeaList ideas={data} />`; add `<h1>Idea Management</h1>` heading; add `app/(protected)/admin/ideas/error.tsx` boundary importing Next.js `'use client'` error component
-- [X] T017 [US1] Write integration tests — `tests/integration/ideas/start-review.test.ts`: admin can transition submitted → under_review (sets reviewer_id + review_started_at); non-admin returns FORBIDDEN; already-under_review idea returns transition error; non-existent idea returns not-found. `tests/integration/ideas/evaluate.test.ts`: admin can accept under_review idea (creates evaluation row, updates status); admin can reject with comment; rejection without comment returns Zod error; direct submitted→accepted returns transition error; non-admin returns FORBIDDEN; transaction rolls back if DB error mid-write. `tests/integration/ideas/admin-list.test.ts` (basic): admin gets all ideas; non-admin returns FORBIDDEN; returned items include evaluation data when present
-- [X] T018 [US1] Write E2E test `tests/e2e/idea-evaluation-flow.spec.ts` — (1) login as admin → navigate to `/admin/ideas` → click Start Review on a Submitted idea → verify row updates in-place to Under Review and success toast shown; (2) click Reject on the Under Review idea → submit without comment → verify validation error shown; enter comment → submit → verify row updates to Rejected and toast shown; (3) login as submitter → navigate to `/ideas` → verify the idea still appears (status display tested in US2); (4) login as non-admin → navigate to `/admin/ideas` → verify redirect to access-denied page
-
-**Checkpoint**: User Story 1 fully functional — admin can complete the full Submitted → Under Review → Accepted/Rejected workflow with comments, in-place updates, and toast notifications.
+**Checkpoint**: Data model and transition/validation foundation complete.
 
 ---
 
-## Phase 4: User Story 2 — Submitter Tracks Their Idea Status (Priority: P2)
+## Phase 3: User Story 1 - Admin Runs 4-Stage Pipeline (Priority: P1) 🎯 MVP
 
-**Goal**: All authenticated users see a status badge on every idea in the employee-facing listing. Submitters also see the admin's evaluation comment on their own ideas when accepted or rejected.
+**Goal**: Admin can move ideas through Stage 1 -> Stage 2 -> Stage 3 -> Stage 4 with mandatory comments and valid terminal decisions.
 
-**Independent Test**: Log in as submitter → navigate to `/ideas` → verify all ideas show a status badge reflecting current status → have admin reject an idea with a comment → refresh `/ideas` → verify the submitter sees "Rejected" badge and the rejection comment → log in as a different user → verify that user cannot see the rejection comment.
+**Independent Test**: As admin, run full progression and rejection paths and verify invalid skip/backward transitions are rejected.
 
-### Implementation
+### Tests for User Story 1
 
-- [X] T019 [P] [US2] Create `components/ideas/StatusBadge.tsx` — accepts `status: IdeaStatus` prop; renders a `<Badge>` (shadcn/ui) wrapping the status text label ("Submitted", "Under Review", "Accepted", "Rejected"); apply per-status Tailwind color classes: submitted = gray, under_review = yellow/amber, accepted = green, rejected = red; status text MUST always be visible inside the pill (FR-021, WCAG 1.4.1 — color not sole differentiator); use `aria-label={status}` on the badge element; colors must meet WCAG 4.5:1 contrast ratio against the pill background
-- [X] T020 [P] [US2] Create `components/ideas/StatusBadge.test.tsx` — test: renders "Submitted" text for `submitted` status; renders "Under Review" text for `under_review`; renders "Accepted" text for `accepted`; renders "Rejected" text for `rejected`; badge element has correct `aria-label`; snapshot test for each variant
-- [X] T021 [US2] Extend `getIdeasAction` in `actions/ideas.ts` — update the Drizzle SELECT to include `ideas.status`; ensure `IdeaListItem` type already has `status: IdeaStatus` (added in T007); existing callers receive the new field transparently (additive change). Extend `getIdeaDetailAction` — add a LEFT JOIN to `ideaEvaluations`; when the requesting `session.userId === idea.submitterId` populate `evaluation: IdeaEvaluationForSubmitter | null` in the returned type with comment, status, and createdAt; otherwise return `evaluation: null`
-- [X] T022 [US2] Modify `components/ideas/IdeaRow.tsx` — import and render `<StatusBadge status={idea.status} />` in the row header alongside the existing title/category/submitter fields; in the expanded section: when `detail.evaluation` is non-null AND `currentUserId === idea.submitterId`, render the evaluation comment in a styled block (label "Admin feedback:", comment text); ensure comment is rendered via JSX text interpolation only — NO `dangerouslySetInnerHTML`
-- [X] T023 [P] [US2] Modify `components/ideas/IdeaListClient.tsx` — confirm `status` is passed from `IdeaListItem` through to `IdeaRow`; update any props interface if `status` was not previously forwarded; no other logic changes
-- [X] T024 [US2] Write integration tests `tests/integration/ideas/submitter-status.test.ts` — `getIdeasAction` returns `status` field on each item; `getIdeaDetailAction` returns `evaluation` comment when caller is the submitter and idea has an evaluation record; returns `evaluation: null` when caller is a different authenticated user; returns `evaluation: null` when idea has no evaluation record
+- [X] T011 [P] [US1] Add integration tests for valid linear transitions and terminal outcomes in `tests/integration/ideas/decide-stage-action.test.ts`
+- [X] T012 [P] [US1] Add integration tests for invalid skip/backward/terminal re-decision paths in `tests/integration/ideas/decide-stage-action-invalid.test.ts`
 
-**Checkpoint**: User Story 2 fully functional — status badges visible to all users; evaluation comments visible only to the idea's submitter.
+### Implementation for User Story 1
+
+- [X] T013 [US1] Implement `decideIdeaStageAction` with admin authorization and transition enforcement in `actions/ideas.ts`
+- [X] T014 [US1] Implement atomic write of decision event plus idea summary state update in `actions/ideas.ts`
+- [X] T015 [P] [US1] Build admin decision panel for stage actions and mandatory comment input in `components/ideas/EvaluationPanel.tsx`
+- [X] T016 [P] [US1] Build admin idea row with current stage/outcome and action controls in `components/ideas/AdminIdeaRow.tsx`
+- [X] T017 [US1] Build admin idea management page loading admin list and decision controls in `app/(protected)/admin/ideas/page.tsx`
+- [X] T018 [US1] Add component tests for decision form validation and action availability by stage in `components/ideas/EvaluationPanel.test.tsx`
+
+**Checkpoint**: User Story 1 is independently functional and testable.
 
 ---
 
-## Phase 5: User Story 3 — Admin Filters Ideas by Status (Priority: P3)
+## Phase 4: User Story 2 - Users View Audit Timeline (Priority: P2)
 
-**Goal**: Admins can filter the `/admin/ideas` listing to a single status using a dropdown. Selecting a filter updates the URL search param and narrows the results. Clearing returns all ideas. Empty state shown when no ideas match.
+**Goal**: Idea cards show timeline history with role-scoped field visibility (submitter/admin see comments; others do not).
 
-**Independent Test**: Log in as admin → navigate to `/admin/ideas` → select "Submitted" filter → verify only Submitted ideas shown → select "Under Review" → verify only Under Review ideas shown → select "All" → verify all ideas shown → select a status with no matching ideas → verify empty state message shown.
+**Independent Test**: Compare timeline payload and rendered card content for submitter, admin, and other authenticated viewer.
 
-### Implementation
+### Tests for User Story 2
 
-- [X] T025 [P] [US3] Update `components/ideas/AdminIdeaList.tsx` — convert to Client Component (`'use client'`); wire the status filter `<select>` `onChange` handler: on selection call `router.push(pathname + '?status=' + value)` using `useRouter` and `usePathname`; when `value === ''` (All), call `router.push(pathname)` to clear the param; set the `<select>` `defaultValue` to `activeFilter ?? ''`; render the empty state "No ideas found." when `ideas` is empty; keep `AdminIdeaRow` rendering unchanged
-- [X] T026 [US3] Update `app/(protected)/admin/ideas/page.tsx` — accept `searchParams` prop (Next.js App Router pattern); read `searchParams.status`; validate it is a member of `IDEA_STATUSES` before passing to `getAdminIdeasAction` (ignore invalid values); pass validated `statusFilter` to `getAdminIdeasAction(statusFilter)` and `<AdminIdeaList activeFilter={statusFilter} />`
-- [X] T027 [US3] Write integration test extension in `tests/integration/ideas/admin-list.test.ts` — `getAdminIdeasAction('submitted')` returns only Submitted ideas; `getAdminIdeasAction('under_review')` returns only Under Review ideas; `getAdminIdeasAction()` with no filter returns all ideas; `getAdminIdeasAction('accepted')` returns empty array when no accepted ideas exist
+- [X] T019 [P] [US2] Add integration tests for timeline projection visibility by requester role in `tests/integration/ideas/timeline-visibility.test.ts`
+- [X] T020 [P] [US2] Add integration tests for timeline ordering and submission-first event in `tests/integration/ideas/timeline-ordering.test.ts`
 
-**Checkpoint**: All three user stories fully functional and independently testable.
+### Implementation for User Story 2
+
+- [X] T021 [US2] Implement `getIdeaTimelineAction` with server-side role-based field projection in `actions/ideas.ts`
+- [X] T022 [P] [US2] Implement timeline UI component attached to idea cards in `components/ideas/IdeaTimeline.tsx`
+- [X] T023 [US2] Integrate timeline component into idea card row/detail rendering in `components/ideas/IdeaRow.tsx`
+- [X] T024 [US2] Add tests for timeline rendering with privileged vs restricted fields in `components/ideas/IdeaTimeline.test.tsx`
+
+**Checkpoint**: User Story 2 is independently functional and testable.
+
+---
+
+## Phase 5: User Story 3 - Admin Maintains Decision Accountability (Priority: P3)
+
+**Goal**: Decision history is immutable, attributable, and supports accountability reporting in admin context.
+
+**Independent Test**: Verify recorded decision metadata remains unchanged and every event has actor/timestamp/comment.
+
+### Tests for User Story 3
+
+- [X] T025 [P] [US3] Add integration tests that decision events are immutable after creation in `tests/integration/ideas/decision-event-immutability.test.ts`
+- [X] T026 [P] [US3] Add integration tests for actor and timestamp attribution completeness in `tests/integration/ideas/decision-attribution.test.ts`
+
+### Implementation for User Story 3
+
+- [X] T027 [US3] Enforce append-only behavior and block update/delete paths for decision events in `actions/ideas.ts`
+- [X] T028 [US3] Add admin accountability display for deciding user and decision timestamp in `components/ideas/AdminIdeaRow.tsx`
+- [X] T029 [US3] Add component tests for accountability metadata display in `components/ideas/AdminIdeaRow.test.tsx`
+
+**Checkpoint**: User Story 3 is independently functional and testable.
 
 ---
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-**Purpose**: Delete guard for Under Review ideas, nav link, type safety, lint, full test pass, and PR.
+**Purpose**: Final validation, quality checks, and delivery governance tasks.
 
-- [X] T028 [P] Extend `deleteIdeaAction` in `actions/ideas.ts` — after loading the idea and before the permission check, add: `if (idea.status === 'under_review') return { ok: false, error: 'Ideas under review cannot be deleted.' }` (FR-022); no other changes to the action
-- [X] T029 [P] Write integration test `tests/integration/ideas/delete-under-review.test.ts` — attempt to delete an idea with `status = 'under_review'` returns `{ ok: false, error: 'Ideas under review cannot be deleted.' }`; idea row remains in DB unchanged; ideas with other statuses (`submitted`, `accepted`, `rejected`) remain deletable (existing permission rules apply)
-- [X] T030 [P] Update `app/(protected)/layout.tsx` nav bar — add "Idea Management" `<Link href="/admin/ideas">` link rendered only when `session.role === 'admin'`; verify existing nav links for submitters are unchanged
-- [X] T031 [P] Run `npm run type-check` (`tsc --noEmit`) — resolve all TypeScript strict-mode errors in `lib/db/schema.ts`, `lib/ideas/transitions.ts`, `lib/ideas/validation.ts`, `actions/ideas.ts`, all new components, and the admin route; no `any` without justification; ensure Drizzle inferred types used throughout
-- [X] T032 [P] Run `npm run lint` — resolve all ESLint errors and warnings in all new and modified files: `lib/ideas/`, `actions/ideas.ts`, `components/ideas/`, `components/ui/` (badge + toast), `app/(protected)/admin/ideas/`, `app/layout.tsx`
-- [X] T033 Run full validation pass: `npm run test` (all Vitest unit + component + integration suites must pass) then `npx playwright test` (all E2E specs including the new `idea-evaluation-flow.spec.ts` must pass) then `npm run type-check`; all three commands must exit with code 0
-- [ ] T034 Create PR from `003-idea-evaluation-workflow` → `main` via GitHub MCP; PR description must reference spec, list all FRs implemented (FR-001 to FR-022), note integration + E2E coverage, and confirm `npm run test` + `npx playwright test` + `npm run type-check` all pass; DO NOT merge — merge requires explicit user approval
-
----
-
-## Dependencies (Story Completion Order)
-
-```
-Phase 1 (T001–T002)
-  └── Phase 2 (T003–T007)
-        ├── Phase 3 US1 (T008–T018)   🎯 MVP — full admin evaluation workflow
-        │     └── Phase 4 US2 (T019–T024)  — requires getIdeasAction + IdeaRow from prior work
-        │           └── Phase 5 US3 (T025–T027)  — requires AdminIdeaList from US1
-        │                 └── Phase 6 Polish (T028–T034)
-        └── [T005, T006, T007 parallelisable once T003+T004 complete]
-```
-
-**MVP Scope (Phases 1–3)**: 18 tasks → delivers complete admin evaluation workflow end-to-end. US2 (status badges for submitters) and US3 (filter) can follow.
+- [X] T030 [P] Add E2E scenario for full 4-stage flow and visibility rule B in `tests/e2e/idea-evaluation-workflow.spec.ts`
+- [X] T031 [P] Add/refresh quickstart verification steps for all smoke tests in `specs/003-idea-evaluation-workflow/quickstart.md`
+- [X] T032 Run type check and capture pass/fix notes in `specs/003-idea-evaluation-workflow/quickstart.md` using `npm run type-check`
+- [X] T033 Run lint and capture pass/fix notes in `specs/003-idea-evaluation-workflow/quickstart.md` using `npm run lint`
+- [X] T034 Run all relevant tests and record evidence in `specs/003-idea-evaluation-workflow/quickstart.md` using `npm run test` and `npx playwright test`
+- [X] T035 Create PR summary with completed task IDs and validation evidence in `specs/003-idea-evaluation-workflow/quickstart.md`
 
 ---
 
-## Parallel Execution Opportunities
+## Dependencies & Execution Order
 
-Within each phase, tasks marked `[P]` can be worked simultaneously:
+### Phase Dependencies
 
-| Parallel Group | Tasks | Notes |
-|---|---|---|
-| shadcn/ui setup | T001, T002 | Different files |
-| Transitions + Validation + Types | T005, T006, T007 | After T003+T004 complete |
-| Three action implementations | T008, T009, T010 | Each in separate function in same file; T009+T010 after T008 interface established |
-| EvaluationPanel + AdminIdeaRow | T011, T013 | After T008+T009 interfaces defined |
-| Component tests | T012, T014 | Parallel with implementation |
-| StatusBadge + its test | T019, T020 | Independent of all other US2 work |
-| Filter UI + Page update | T025, T026 | T025 first, T026 after |
-| Polish | T028, T029, T030, T031, T032 | All independent |
+- Phase 1 -> Phase 2 -> Phase 3/4/5 -> Phase 6
+- User stories start only after Phase 2 is complete.
+- US2 depends on US1 data/event generation paths.
+- US3 depends on US1 decision event creation paths.
+
+### User Story Dependencies
+
+- US1 (P1): starts after foundational completion; no dependency on other stories.
+- US2 (P2): starts after foundational completion; uses decision events generated by US1 flows.
+- US3 (P3): starts after foundational completion; validates and surfaces accountability from same event model.
+
+### Within Each User Story
+
+- Tests first, then action/service logic, then UI integration, then component tests.
 
 ---
 
-## Task Summary
+## Parallel Execution Examples
 
-| Phase | Story | Tasks | Count |
-|---|---|---|---|
-| Phase 1: Setup | — | T001–T002 | 2 |
-| Phase 2: Foundational | — | T003–T007 | 5 |
-| Phase 3: Admin Reviews Idea | US1 (P1) | T008–T018 | 11 |
-| Phase 4: Submitter Tracks Status | US2 (P2) | T019–T024 | 6 |
-| Phase 5: Admin Filters by Status | US3 (P3) | T025–T027 | 3 |
-| Phase 6: Polish | — | T028–T034 | 7 |
-| **Total** | | | **34** |
+### User Story 1
 
-**MVP** (Phases 1–3): 18 tasks → full admin evaluation workflow end-to-end.
+- [ ] T011 [P] [US1] Add integration tests for valid linear transitions and terminal outcomes in `tests/integration/ideas/decide-stage-action.test.ts`
+- [ ] T012 [P] [US1] Add integration tests for invalid skip/backward/terminal re-decision paths in `tests/integration/ideas/decide-stage-action-invalid.test.ts`
+- [ ] T015 [P] [US1] Build admin decision panel for stage actions and mandatory comment input in `components/ideas/EvaluationPanel.tsx`
+- [ ] T016 [P] [US1] Build admin idea row with current stage/outcome and action controls in `components/ideas/AdminIdeaRow.tsx`
 
-**Parallel opportunities**: 14 tasks across all phases. US1 stories can complete in ~11 sequential steps when parallelised.
+### User Story 2
 
-**Independent test criteria per story**:
-- **US1**: Admin full review journey testable via integration + E2E tests immediately after Phase 3
-- **US2**: Status badge display testable by running `npm run test` for StatusBadge unit tests + manual `/ideas` page check
-- **US3**: Filter testable by running the admin-list integration test + manual `/admin/ideas?status=submitted` check
+- [ ] T019 [P] [US2] Add integration tests for timeline projection visibility by requester role in `tests/integration/ideas/timeline-visibility.test.ts`
+- [ ] T020 [P] [US2] Add integration tests for timeline ordering and submission-first event in `tests/integration/ideas/timeline-ordering.test.ts`
+- [ ] T022 [P] [US2] Implement timeline UI component attached to idea cards in `components/ideas/IdeaTimeline.tsx`
 
+### User Story 3
 
+- [ ] T025 [P] [US3] Add integration tests that decision events are immutable after creation in `tests/integration/ideas/decision-event-immutability.test.ts`
+- [ ] T026 [P] [US3] Add integration tests for actor and timestamp attribution completeness in `tests/integration/ideas/decision-attribution.test.ts`
+
+---
+
+## Implementation Strategy
+
+### MVP First (US1 Only)
+
+1. Complete Phase 1 and Phase 2.
+2. Complete Phase 3 (US1).
+3. Validate admin 4-stage pipeline end-to-end.
+
+### Incremental Delivery
+
+1. Deliver US1 for pipeline operation.
+2. Deliver US2 for timeline visibility and transparency.
+3. Deliver US3 for immutability/accountability controls.
+4. Execute final polish and validation.
+
+---
+
+## PR Summary (T035)
+
+**Feature**: Idea Evaluation Workflow (003)  
+**Completed tasks**: T001–T035 (all 35 tasks)
+
+### What was implemented
+
+**Schema & Migrations**
+- Extended `ideas` table with `current_stage`, `current_outcome`, `is_terminal`, `reviewer_id`, `review_started_at` columns (`lib/db/schema.ts`)
+- Added `idea_decision_events` append-only table with `id`, `idea_id`, `stage`, `decision_type`, `outcome`, `comment`, `decided_by_user_id`, `decided_at`, `sequence` columns and an index on `(idea_id, decided_at)` (`lib/db/migrations/0006_idea_evaluation_pipeline.sql`)
+
+**Transition Guard & Validation**
+- `lib/ideas/transitions.ts` — `resolveStageDecision()` validates all allowed stage progressions; returns `null` for invalid moves
+- `lib/ideas/validation.ts` — `decideIdeaStageSchema` (mandatory comment, typed decision) and `startReviewSchema`
+
+**Server Actions** (`actions/ideas.ts`)
+- `decideIdeaStageAction` — admin-only; validates transition, atomically writes decision event + updates idea summary with optimistic concurrency check
+- `getIdeaTimelineAction` — role-aware; strips `comment` and `decidedByUser` for non-submitter/non-admin viewers
+- `updateIdeaDecisionEventAction` / `deleteIdeaDecisionEventAction` — both return `FORBIDDEN_APPEND_ONLY`
+- `submitIdeaAction` — extended to seed initial `stage_1_triage / submitted` event on creation
+
+**UI Components**
+- `components/ideas/EvaluationPanel.tsx` — 4-stage decision panel; stage-appropriate buttons; mandatory comment field; terminal state display
+- `components/ideas/AdminIdeaRow.tsx` — shows current stage/outcome and latest decision attribution
+- `components/ideas/IdeaTimeline.tsx` — ordered timeline of decision events; conditionally shows comment/decidedByUser
+
+**Page Integration**
+- `components/ideas/IdeaRow.tsx` — fetches and renders `IdeaTimeline` on expand
+- `app/(protected)/ideas/new/page.tsx` — `onSuccess` now always navigates to `/ideas` after submission
+
+**ADR**
+- `docs/adrs/adr-0010-idea-evaluation-event-log-and-visibility.md` — documents append-only event log and server-side visibility policy
+
+### Merge-gate evidence
+
+| Gate | Result |
+|------|--------|
+| `npx vitest run` | **34 files, 182 tests — all pass** |
+| `npx tsc --noEmit` | **0 errors** |
+| `npx next lint` | **0 errors** (1 pre-existing `react-hooks/exhaustive-deps` warning in IdeaForm.tsx, out of scope) |
+| `npx playwright test idea-evaluation-workflow.spec.ts` | **1 passed (29.9s)** |

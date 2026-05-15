@@ -1,203 +1,147 @@
 # Contracts: Server Actions
 
-**Feature**: `003-idea-evaluation-workflow`
-**Date**: 2026-05-14
-**File**: `actions/ideas.ts` (extensions to the existing module)
+**Feature**: `003-idea-evaluation-workflow`  
+**Date**: 2026-05-15  
+**Scope**: Extensions to `actions/ideas.ts`
 
-All Server Actions return a discriminated `ActionResult` union and **MUST NOT throw** — all errors are caught and returned as `{ ok: false, error: string }`.
+All actions return structured results and enforce authorization and transition validation on the server.
 
----
-
-## Shared Types (extensions)
+## Shared Types
 
 ```typescript
-// actions/ideas.ts — additions
+export type EvaluationStage =
+  | 'stage_1_triage'
+  | 'stage_2_department_review'
+  | 'stage_3_feasibility'
+  | 'stage_4_final_executive_decision'
 
-export type IdeaStatus = 'submitted' | 'under_review' | 'accepted' | 'rejected'
+export type DecisionType =
+  | 'approve_next'
+  | 'reject'
+  | 'final_approve'
+  | 'final_reject'
 
-// Extended IdeaListItem — add status field (breaks no existing callers; new required field)
-export type IdeaListItem = {
-  id:            number
-  title:         string
-  category:      IdeaCategory
-  submitterName: string
-  submitterId:   number
-  status:        IdeaStatus      // NEW
-  createdAt:     number
-  updatedAt:     number
-  hasAttachment: boolean
-}
-
-// Admin-view item — includes evaluation data visible only to admin
-export type AdminIdeaListItem = IdeaListItem & {
-  reviewerName:    string | null  // display name of admin who started review, if any
-  reviewStartedAt: number | null
-  evaluation: {
-    adminName: string
-    status:    'accepted' | 'rejected'
-    comment:   string | null
-    createdAt: number
-  } | null
-}
-
-// What the submitter sees for their own idea
-export type IdeaEvaluationForSubmitter = {
-  status:    'accepted' | 'rejected'
-  comment:   string | null
-  createdAt: number
-}
+export type ActionResult<T = void> =
+  | { ok: true; data: T }
+  | { ok: false; error: string; code?: string }
 ```
 
----
+## 1) Decide Stage Transition
 
-## Modified Actions
-
-### `getIdeasAction` (existing — extended)
-
-Returns all submitted ideas, newest first. Now includes `status` on each item.
+Applies an admin decision at current stage, validates linear flow, records immutable event, and updates current idea summary state.
 
 ```typescript
-export async function getIdeasAction(): Promise<ActionResult<IdeaListItem[]>>
-```
-
-**Change**: The returned `IdeaListItem` shape now includes `status: IdeaStatus`. All existing callers must handle this new field (no breaking change — additive).
-
-**Auth**: Requires authenticated session. Returns `{ ok: false, error: 'UNAUTHENTICATED' }` if not logged in.
-
----
-
-### `getIdeaDetailAction` (existing — extended)
-
-Returns full idea detail. Now includes `status` and, when the requester is the submitter, the evaluation comment if present.
-
-```typescript
-export async function getIdeaDetailAction(
-  id: number
-): Promise<ActionResult<IdeaDetail & {
-  status: IdeaStatus
-  evaluation: IdeaEvaluationForSubmitter | null  // only populated when session.userId === submitterId
-}>>
-```
-
-**Auth**: Requires authenticated session.
-
----
-
-### `deleteIdeaAction` (existing — extended)
-
-**Change**: Returns `{ ok: false, error: 'Ideas under review cannot be deleted.' }` when `idea.status === 'under_review'` (FR-022). No other behavior change.
-
-```typescript
-export async function deleteIdeaAction(id: number): Promise<ActionResult>
-```
-
----
-
-## New Actions
-
-### `startReviewAction`
-
-Transitions an idea from `submitted` → `under_review`. Records the acting admin's identity and timestamp.
-
-```typescript
-export async function startReviewAction(ideaId: number): Promise<ActionResult>
-```
-
-**Auth**: Requires admin role. Returns `{ ok: false, error: 'FORBIDDEN' }` for non-admin sessions (FR-014).
-
-**Validation** (server-side, in order):
-1. Session exists and role is `'admin'`.
-2. Idea with `ideaId` exists.
-3. `idea.status === 'submitted'` — returns `{ ok: false, error: 'Invalid status transition.' }` otherwise (FR-006).
-4. `validateTransition('submitted', 'under_review')` guard confirms the transition.
-
-**DB writes** (atomic):
-- `UPDATE ideas SET status = 'under_review', reviewer_id = :adminId, review_started_at = :now WHERE id = :ideaId`
-
-**Success response**: `{ ok: true, data: undefined }`
-
-**Error responses**:
-| Scenario | Error value |
-|---|---|
-| Not authenticated | `'UNAUTHENTICATED'` |
-| Not admin | `'FORBIDDEN'` |
-| Idea not found | `'Idea not found.'` |
-| Invalid current status | `'Invalid status transition.'` |
-| DB error | `'Failed to start review. Please try again.'` |
-
----
-
-### `evaluateIdeaAction`
-
-Transitions an idea from `under_review` → `accepted` or `rejected`. Creates the `idea_evaluations` record.
-
-```typescript
-export async function evaluateIdeaAction(payload: {
-  ideaId:  number
-  status:  'accepted' | 'rejected'
-  comment?: string
+export async function decideIdeaStageAction(input: {
+  ideaId: number
+  decision: DecisionType
+  comment: string
 }): Promise<ActionResult>
 ```
 
-**Auth**: Requires admin role. Returns `{ ok: false, error: 'FORBIDDEN' }` for non-admin sessions (FR-014).
+### Authorization
 
-**Validation** (server-side, in order):
-1. Session exists and role is `'admin'`.
-2. `evaluateIdeaSchema.safeParse(payload)` — Zod discriminated union. If invalid: `{ ok: false, error: validationError }`.
-3. Idea with `payload.ideaId` exists.
-4. `idea.status === 'under_review'` — returns `{ ok: false, error: 'Invalid status transition.' }` otherwise (FR-006).
-5. `validateTransition('under_review', payload.status)` guard confirms the transition.
+- Requires authenticated admin user.
+- Non-admin requests return `FORBIDDEN`.
 
-**DB writes** (wrapped in a transaction):
-- `UPDATE ideas SET status = :newStatus WHERE id = :ideaId`
-- `INSERT INTO idea_evaluations (idea_id, admin_id, status, comment, created_at) VALUES (...)`
+### Validation
 
-**Success response**: `{ ok: true, data: undefined }`
+- `comment` must be non-empty for all decisions.
+- Decision must be valid for current stage and non-terminal idea state.
+- Skip/backward transitions are rejected.
 
-**Error responses**:
-| Scenario | Error value |
-|---|---|
-| Not authenticated | `'UNAUTHENTICATED'` |
-| Not admin | `'FORBIDDEN'` |
-| Zod validation failure (e.g., missing rejection comment) | `'Rejection reason is required.'` |
-| Idea not found | `'Idea not found.'` |
-| Invalid current status | `'Invalid status transition.'` |
-| DB error | `'Failed to save evaluation. Please try again.'` |
+### Side Effects
 
----
+- Insert immutable decision event.
+- Update idea `currentStage/currentOutcome/isTerminal` atomically.
 
-### `getAdminIdeasAction`
+### Errors
 
-Returns all ideas for the admin management view, optionally filtered by a single status value. Includes evaluation data.
+- `UNAUTHENTICATED`
+- `FORBIDDEN`
+- `IDEA_NOT_FOUND`
+- `INVALID_TRANSITION`
+- `VALIDATION_ERROR`
+- `CONFLICT_STALE_STATE`
+
+## 2) Get Admin Ideas
+
+Returns ideas for admin management with full timeline metadata visibility.
 
 ```typescript
-export async function getAdminIdeasAction(
-  statusFilter?: IdeaStatus
-): Promise<ActionResult<AdminIdeaListItem[]>>
+export async function getAdminIdeasAction(input?: {
+  stage?: EvaluationStage
+  outcome?: 'in_progress' | 'rejected' | 'final_approved' | 'final_rejected'
+}): Promise<ActionResult<Array<{
+  id: number
+  title: string
+  submitterName: string
+  currentStage: EvaluationStage
+  currentOutcome: string
+  isTerminal: boolean
+}>>>
 ```
 
-**Auth**: Requires admin role. Returns `{ ok: false, error: 'FORBIDDEN' }` for non-admin sessions (FR-013, FR-018).
+### Authorization
 
-**Filtering**: When `statusFilter` is provided and is a valid `IdeaStatus` value, results are filtered to that status. When omitted or `undefined`, all ideas are returned (FR-015).
+- Requires authenticated admin user.
 
-**Joins**: Left join `idea_evaluations`, left join `users` (for submitter name, reviewer name, evaluator name). No attachment content included.
+### Notes
 
-**Sort**: Newest first (`ideas.created_at DESC`).
+- Default returns all ideas.
+- Filtering is optional.
 
-**Success response**: `{ ok: true, data: AdminIdeaListItem[] }` (empty array when no ideas match)
+## 3) Get Idea Timeline (Viewer-Aware Projection)
 
-**Error responses**:
-| Scenario | Error value |
-|---|---|
-| Not authenticated | `'UNAUTHENTICATED'` |
-| Not admin | `'FORBIDDEN'` |
-| DB error | `'Failed to load ideas. Please try again.'` |
+Returns timeline entries for idea card with role-based field projection.
 
----
+```typescript
+export async function getIdeaTimelineAction(input: {
+  ideaId: number
+}): Promise<ActionResult<Array<{
+  sequence: number
+  stage: EvaluationStage
+  outcome: string
+  decidedAt: number
+  // Optional based on authorization context:
+  comment?: string
+  decidedByUser?: string
+}>>>
+```
 
-## Action Constraints
+### Authorization
 
-- All actions **MUST NOT** use `dangerouslySetInnerHTML` or return raw HTML.
-- Comment text is stored as plain text; no sanitization beyond `max(1000)` is required (plain text only per Assumptions).
-- All DB writes that touch both `ideas` and `idea_evaluations` in `evaluateIdeaAction` MUST be wrapped in a Drizzle transaction to guarantee atomicity (FR-022 rollback requirement).
-- Evaluation records are never updated or deleted after insertion (FR-017).
+- Requires authenticated user with access to idea card context.
+
+### Projection Rules
+
+- Submitter or admin: include `comment` and `decidedByUser`.
+- Other authenticated viewers: omit `comment`; include non-sensitive progression fields only.
+
+### Errors
+
+- `UNAUTHENTICATED`
+- `IDEA_NOT_FOUND`
+- `FORBIDDEN` (if idea card itself not viewable)
+
+## 4) Get Idea List Item Summary (Existing List Extension)
+
+Existing list/read actions must include current stage and current outcome for status display.
+
+```typescript
+export type IdeaListItem = {
+  id: number
+  title: string
+  currentStage: EvaluationStage
+  currentOutcome: string
+  isTerminal: boolean
+  // existing fields omitted
+}
+```
+
+## 5) Contract Invariants
+
+- All transition decisions are server-authoritative.
+- Comment requirement is enforced before persistence.
+- Decision events are immutable after insertion.
+- Timeline projection policy is enforced server-side.
+- Transition write and summary update happen in one transaction.

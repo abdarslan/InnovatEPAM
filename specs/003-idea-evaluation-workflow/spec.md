@@ -2,18 +2,18 @@
 
 **Feature Branch**: `003-idea-evaluation-workflow`
 
-**Created**: 2026-05-14
+**Created**: 2026-05-15
 
 **Status**: Draft
 
-**Input**: User description: "implement idea evaluation workflow. idea status tracking as submitted -> under review -> accepted/rejected. And admin can accept or reject with comments"
+**Input**: User description: "Build a 4-stage evaluation pipeline for submitted ideas. The stages are Stage 1 Triage, Stage 2 Department Review, Stage 3 Feasibility, and Stage 4 Final Executive Decision. Ideas must progress linearly. Admins must leave a mandatory comment when rejecting an idea at any stage, or when approving it to move to the next stage. Create an audit history view so users can see the timeline of their idea's progress, attached to idea cards. Each transition or decision must include who decided and what comment was provided."
 
 ## Clarifications
 
 ### Session 2026-05-14
 
 - Q: Where do admin evaluation actions (Start Review / Accept / Reject) live in the application? → A: New dedicated `admin/ideas` route, separate from the employee-facing `/ideas` listing.
-- Q: Who can see admin evaluation comments (acceptance/rejection)? → A: Only the submitter of a given idea sees the evaluation comment; all other authenticated users see only the status badge.
+- Q: Who can see admin evaluation comments (acceptance/rejection)? → A: The idea submitter and admins can see evaluation comments; other authenticated users see only stage/outcome without comment text.
 - Q: Can an admin skip "Under Review" and directly Accept/Reject a "Submitted" idea? → A: No — "Under Review" is a required intermediate step; direct Submitted → Accepted/Rejected transitions are prohibited.
 - Q: Can an admin evaluate multiple ideas at once (bulk operations)? → A: No — evaluation is strictly one idea at a time; bulk transitions are out of scope for v1.
 - Q: Can an admin edit an evaluation comment after submission? → A: No — evaluation comments are immutable once submitted to preserve audit integrity.
@@ -24,120 +24,125 @@
 - Q: What visual differentiator must status badges use beyond color (WCAG 1.4.1)? → A: The status text label MUST always be visible inside the badge (colored pill containing the status word); color alone is not sufficient.
 - Q: What happens if someone tries to delete an idea while it is in "Under Review"? → A: Deletion is blocked for ideas in "Under Review" status; the system returns a validation error and keeps the idea unchanged.
 
+### Session 2026-05-15
+
+- Q: Should stage transitions allow skipping or reordering? → A: No. Ideas move strictly in order from Stage 1 to Stage 4, with no skips or backward movement.
+- Q: Is an admin comment required for approvals as well as rejections? → A: Yes. A non-empty admin comment is mandatory for every approval-to-next-stage transition and every rejection decision.
+- Q: What should users see in idea progress history? → A: A timeline attached to each idea card showing every transition/decision, including stage, decision outcome, deciding user, comment, and timestamp.
+- Q: Who can view comment text in timeline entries? → A: Only the idea submitter and admins can view comment text; other authenticated viewers see stage and outcome without comment text.
+
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Admin Reviews a Submitted Idea (Priority: P1)
+### User Story 1 - Admin Runs 4-Stage Pipeline (Priority: P1)
 
-An admin visits the dedicated `admin/ideas` page, sees all ideas across all statuses with filter controls available, picks one, marks it as "Under Review", and later either accepts or rejects it with a written comment explaining the decision.
+An admin evaluates a submitted idea through the defined pipeline stages in sequence: Stage 1 Triage, Stage 2 Department Review, Stage 3 Feasibility, and Stage 4 Final Executive Decision. At each decision point, the admin records a mandatory comment for either approval to the next stage or rejection.
 
-**Why this priority**: The core of the evaluation workflow — without the ability for admins to transition idea status and record decisions, the feature has no value.
+**Why this priority**: The staged progression and decision capture are the core business process. Without this flow, ideas cannot be governed consistently.
 
-**Independent Test**: Can be fully tested by logging in as an admin, navigating to the idea management dashboard, transitioning a submitted idea through "Under Review" to "Accepted" or "Rejected", and verifying the status and comment are persisted and visible.
+**Independent Test**: Can be fully tested by taking one submitted idea through each stage in order, entering required comments on every decision, and verifying accepted progression and rejected termination behavior.
 
 **Acceptance Scenarios**:
 
-1. **Given** an admin viewing an idea in "Submitted" status, **When** they click "Start Review", **Then** the idea status changes to "Under Review" and the change is reflected immediately.
-2. **Given** an admin viewing an idea in "Under Review" status, **When** they click "Accept" and provide an optional comment, **Then** the idea status changes to "Accepted", the comment is stored, a success toast is displayed, and the idea row updates in-place.
-3. **Given** an admin viewing an idea in "Under Review" status, **When** they click "Reject" and provide a required comment, **Then** the idea status changes to "Rejected", the rejection reason is stored, a success toast is displayed, and the idea row updates in-place.
-4. **Given** an admin attempting to reject an idea, **When** they submit without providing a rejection comment, **Then** a validation error is shown and the status is not changed.
-5. **Given** an idea already in "Accepted" or "Rejected" status, **When** an admin views the idea, **Then** the evaluation actions (Accept/Reject) are not available and the final status is clearly displayed.
-6. **Given** a non-admin authenticated user, **When** they attempt to access the admin idea management actions, **Then** they are denied access and shown an appropriate message.
+1. **Given** an idea is at Stage 1 Triage, **When** an admin approves it and provides a non-empty comment, **Then** it moves to Stage 2 Department Review and the decision is saved.
+2. **Given** an idea is at Stage 2 Department Review, **When** an admin approves it and provides a non-empty comment, **Then** it moves to Stage 3 Feasibility and the decision is saved.
+3. **Given** an idea is at Stage 3 Feasibility, **When** an admin approves it and provides a non-empty comment, **Then** it moves to Stage 4 Final Executive Decision and the decision is saved.
+4. **Given** an idea is at any active stage, **When** an admin rejects it and provides a non-empty comment, **Then** the idea is marked Rejected and cannot progress further.
+5. **Given** an admin attempts to approve or reject without a comment, **When** they submit the decision, **Then** the system blocks the action and shows a validation error.
+6. **Given** an admin attempts to skip a stage or move backward, **When** they submit the transition, **Then** the system rejects the request and leaves the idea unchanged.
 
 ---
 
-### User Story 2 - Submitter Tracks Their Idea Status (Priority: P2)
+### User Story 2 - Users View Audit Timeline (Priority: P2)
 
-An authenticated user who submitted an idea can view its current status ("Submitted", "Under Review", "Accepted", "Rejected") in the idea listing. If their idea was rejected, they can also see the admin's comment explaining why.
+A user views an idea card and can see a timeline of idea progress events; detailed comment text is visible only to the idea submitter and admins.
 
-**Why this priority**: Without visibility into evaluation progress, submitters have no feedback loop — undermining the platform's value proposition.
+**Why this priority**: Trust in the process requires transparent progress and accountability for each stage decision.
 
-**Independent Test**: Can be fully tested by submitting an idea, having an admin change its status, and verifying the submitter's listing view reflects the updated status and any comment.
+**Independent Test**: Can be tested by processing one idea through multiple transitions and verifying each timeline entry is visible, ordered, and complete on the idea card.
 
 **Acceptance Scenarios**:
 
-1. **Given** an authenticated user on the idea listing page, **When** they view their submitted ideas, **Then** each idea displays its current status clearly (e.g., a status badge).
-2. **Given** an idea whose status has been changed to "Accepted" or "Rejected", **When** the submitter views the idea, **Then** they see the updated status and any admin comment associated with the decision.
-3. **Given** an idea in "Rejected" status with a rejection comment, **When** the submitter expands the idea, **Then** the rejection reason comment is displayed.
-4. **Given** an idea still in "Submitted" or "Under Review" status, **When** any authenticated user views the listing, **Then** the status badge reflects the correct current state.
+1. **Given** an idea with one or more decisions recorded, **When** a user opens its card, **Then** they can see a timeline of transitions and decisions.
+2. **Given** a timeline entry is shown to the idea submitter or an admin, **When** they read it, **Then** it includes stage name, decision outcome, deciding user identity, comment, and timestamp.
+3. **Given** a timeline entry is shown to an authenticated viewer who is neither admin nor submitter, **When** they read it, **Then** they see stage name and decision outcome but not comment text.
+4. **Given** an idea is newly submitted and has no stage transition yet, **When** a user views the timeline, **Then** the initial submission appears as the first event.
+5. **Given** an idea is rejected at any stage, **When** the submitter or an admin views the timeline, **Then** the rejection event and its comment are clearly visible.
 
 ---
 
-### User Story 3 - Admin Filters Ideas by Status (Priority: P3)
+### User Story 3 - Admin Maintains Decision Accountability (Priority: P3)
 
-An admin can filter the idea list in the `admin/ideas` route by status to focus on ideas requiring action (e.g., only see "Submitted" or "Under Review" ideas).
+An admin can demonstrate full accountability for any idea decision by relying on immutable history that captures who made each decision and why.
 
-**Why this priority**: As the volume of ideas grows, admins need to prioritize their review queue efficiently.
+**Why this priority**: Governance and review quality depend on a reliable decision record.
 
-**Independent Test**: Can be fully tested by populating ideas with multiple statuses and verifying that selecting a status filter shows only ideas matching that status.
+**Independent Test**: Can be tested by making multiple decisions by different admins and verifying history entries remain unchanged and attributable.
 
 **Acceptance Scenarios**:
 
-1. **Given** an admin on the `admin/ideas` route, **When** they select a status filter (e.g., "Submitted"), **Then** only ideas matching that status are shown.
-2. **Given** an admin on the `admin/ideas` route, **When** they clear the status filter, **Then** all ideas across all statuses are shown.
-3. **Given** no ideas matching the selected status filter, **When** the filter is applied, **Then** an empty-state message is shown.
+1. **Given** multiple admins evaluate an idea over time, **When** the timeline is viewed, **Then** each entry identifies the specific admin who made that decision.
+2. **Given** a decision has been recorded, **When** someone attempts to alter its comment or actor attribution later, **Then** the system rejects the change.
+3. **Given** an idea reaches Stage 4 and receives a final executive decision, **When** the timeline is viewed, **Then** that final decision appears as a distinct terminal entry.
 
 ---
 
 ### Edge Cases
 
-- What happens if an admin tries to transition an idea from "Accepted" back to "Under Review", or from "Submitted" directly to "Accepted/Rejected"? — Both backward transitions and forward-skips are prohibited; the server rejects the request with a validation error.
-- What happens if two admins attempt to evaluate the same idea simultaneously? — Last-write-wins on status update; no optimistic concurrency conflict UI is required in v1.
-- What if the admin's comment exceeds the maximum length? — A validation error is shown and the action is blocked until the comment is within limits.
-- What if the database write fails during a status transition? — The operation is rolled back and the admin sees an error message; the idea status remains unchanged.
-- What if someone attempts to delete an idea while it is in "Under Review"? — The deletion is rejected with a validation error; only ideas in non-review states are eligible for deletion under existing delete permissions.
+- What happens if an admin attempts Stage 1 directly to Stage 3 (or any skip)? — The request is rejected and no transition is recorded.
+- What happens if an admin attempts to move an idea backward to a prior stage? — The request is rejected and no transition is recorded.
+- What happens if an admin submits an approval or rejection without a comment? — The decision is blocked with a validation error.
+- What happens if two admins submit decisions for the same idea at nearly the same time? — Only one valid transition is accepted; the losing request is rejected as no longer valid for the current stage.
+- What happens if an idea is rejected at Stage 2 or Stage 3? — The idea remains terminally Rejected and cannot move to later stages unless a future feature explicitly introduces reopen rules.
+- What happens if a non-admin, non-submitter viewer opens timeline details? — The viewer can see stage/outcome progression but comment text remains hidden.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: Each idea MUST have a status field with four possible values: Submitted, Under Review, Accepted, Rejected.
-- **FR-002**: Newly submitted ideas MUST default to "Submitted" status.
-- **FR-003**: Admin users MUST be able to transition an idea from "Submitted" to "Under Review" only.
-- **FR-004**: Admin users MUST be able to transition an idea from "Under Review" to "Accepted" only.
-- **FR-005**: Admin users MUST be able to transition an idea from "Under Review" to "Rejected" only.
-- **FR-006**: Status transitions MUST follow the strict sequence Submitted → Under Review → Accepted/Rejected; both backward transitions and direct Submitted → Accepted/Rejected skips MUST be prohibited and rejected server-side.
-- **FR-007**: Admin users MUST provide a comment when rejecting an idea; the comment MUST be non-empty.
-- **FR-008**: Admin users MAY provide an optional comment when accepting an idea.
-- **FR-009**: Evaluation comments MUST be stored and associated with the idea's status change.
-- **FR-010**: Evaluation comments MUST NOT exceed 1000 characters.
-- **FR-011**: All authenticated users MUST be able to see the current status of every idea in the listing view as a status badge.
-- **FR-012**: Only the submitter of an idea MUST be able to see the admin's evaluation comment for their own idea; other authenticated users MUST NOT see evaluation comments for ideas they did not submit.
-- **FR-013**: Evaluation actions (Start Review, Accept, Reject) MUST be accessible only to users with the admin role, exposed exclusively via a dedicated `app/(protected)/admin/ideas` route.
-- **FR-014**: Non-admin users MUST NOT be able to trigger any status transition, enforced on the server side.
-- **FR-015**: The `admin/ideas` page MUST show all ideas across all statuses by default; admins MUST be able to filter the list by a single status value to narrow the view.
-- **FR-016**: Every status transition MUST be recorded with the acting admin's identity and a timestamp.
-- **FR-017**: Evaluation comments MUST be immutable once submitted; no edit or delete operation on a saved evaluation comment is permitted.
-- **FR-018**: The `app/(protected)/admin/ideas` route MUST be protected by the same role-based access control middleware used by existing admin routes (`admin/dashboard`, `admin/users`), permitting access only to users with the admin role.
-- **FR-019**: Upon a successful status transition, the system MUST display a brief toast notification to the admin and update the affected idea row in-place without a full page reload.
-- **FR-020**: The `status` column on the `ideas` table MUST have a database-level default value of "Submitted"; no data migration script is required as the database contains no pre-existing idea rows.
-- **FR-021**: Status badges MUST display the status text label visibly inside a colored pill component; color MUST NOT be the sole visual differentiator (WCAG 1.4.1). Required label text per status: "Submitted", "Under Review", "Accepted", "Rejected".
-- **FR-022**: The system MUST reject deletion requests for ideas currently in "Under Review" status, returning a validation error and leaving the idea unchanged.
+- **FR-001**: Every submitted idea MUST enter a four-stage evaluation pipeline with these ordered stages: Stage 1 Triage, Stage 2 Department Review, Stage 3 Feasibility, Stage 4 Final Executive Decision.
+- **FR-002**: Ideas MUST progress linearly through stages; stage skipping and backward movement MUST be rejected.
+- **FR-003**: Approval at Stage 1 MUST move the idea to Stage 2; approval at Stage 2 MUST move the idea to Stage 3; approval at Stage 3 MUST move the idea to Stage 4.
+- **FR-004**: Rejection at any stage MUST mark the idea as Rejected and terminate further stage progression.
+- **FR-005**: Every approval that advances an idea to the next stage MUST require a non-empty admin comment.
+- **FR-006**: Every rejection decision at any stage MUST require a non-empty admin comment.
+- **FR-007**: The Stage 4 Final Executive Decision MUST record a final outcome (Approved or Rejected) with a mandatory non-empty comment.
+- **FR-008**: Only admin users MUST be able to execute stage transitions and stage decisions.
+- **FR-009**: Every transition and decision MUST record the deciding user identity, decision comment, stage context, and timestamp.
+- **FR-010**: The system MUST maintain an audit history timeline for each idea, and the timeline MUST be attached to the idea card.
+- **FR-011**: Authenticated users who can view an idea card MUST be able to view that idea's timeline entries in chronological order.
+- **FR-012**: For the idea submitter and admins, each timeline entry MUST display stage name, decision outcome, deciding user identity, comment text, and decision timestamp.
+- **FR-013**: For authenticated viewers who are neither admin nor submitter, timeline entries MUST display stage name and decision outcome while comment text is hidden.
+- **FR-014**: Decision records in audit history MUST be immutable after creation.
+- **FR-015**: Each idea card MUST show the current stage and current outcome state derived from the latest valid decision.
+- **FR-016**: The timeline MUST include the initial submission event as the starting point for idea progress history.
+
+- **FR-017**: Visibility rules for timeline entry fields MUST be enforced server-side and not rely only on client-side rendering.
 
 ### Key Entities
 
-- **Idea**: Existing entity — extended with a `status` field (Submitted | Under Review | Accepted | Rejected) and a relationship to zero or one evaluation record.
-- **IdeaEvaluation**: New entity stored in a dedicated database table — represents an admin's decision on an idea. Attributes: idea reference (FK), new status, evaluating admin reference (FK), comment (optional for Accepted, required for Rejected), timestamp. Relationship to Idea: 1:0..1 (one idea has at most one evaluation record).
+- **Idea**: Existing entity that now carries current evaluation position (current stage and current outcome) for display and routing through the pipeline.
+- **IdeaDecisionEvent**: Immutable audit event that represents a transition or decision in the pipeline. Attributes include idea reference, stage, decision outcome, deciding user identity, mandatory comment, and timestamp.
+- **IdeaTimeline**: Ordered collection of submission and decision events associated with an idea, rendered in the idea card as a readable progress history.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Admins can complete the full review of an idea (Submitted → Under Review → Accepted/Rejected with comment) in under 60 seconds from the `admin/ideas` route.
-- **SC-002**: Status changes are reflected in the submitter's idea listing within one page refresh (no stale data shown to the viewer after a transition).
-- **SC-003**: 100% of status transitions are enforced server-side — no unauthorized transition is possible regardless of client manipulation.
-- **SC-004**: All rejection decisions include a non-empty comment — the system never persists a rejection without a reason.
-- **SC-005**: Admins can filter the idea list to "Submitted" or "Under Review" status to locate actionable items in under 10 seconds.
+- **SC-001**: 100% of accepted progression decisions (Stage 1→2, 2→3, 3→4) are recorded with a non-empty admin comment.
+- **SC-002**: 100% of rejection decisions at any stage are recorded with a non-empty admin comment.
+- **SC-003**: 100% of recorded transitions include stage, decision outcome, deciding user identity, comment, and timestamp.
+- **SC-004**: 100% of invalid transitions (skip, backward, or non-admin decision attempts) are blocked.
+- **SC-005**: In usability validation, users can identify an idea's current stage and latest decision from the idea card timeline within 10 seconds in at least 90% of attempts.
 
 ## Assumptions
 
-- Admins are users with the existing admin role defined in the authentication system (feature 001-user-auth-management).
-- Ideas are already being submitted via the idea submission system (feature 002-idea-submission); this feature extends that data model. No data migration is required as no idea rows exist in the database at the time this feature is deployed.
-- There is no email or in-app notification system in scope for v1 — submitters check status manually via the listing view.
-- The evaluation comment is plain text only; rich text or markdown formatting is out of scope for v1.
-- Bulk status transitions (evaluating multiple ideas simultaneously) are out of scope for v1; each evaluation action targets exactly one idea.
-- Evaluation comments are immutable once saved — no correction or edit capability is provided in v1.
-- Evaluation comments (both acceptance and rejection) are private to the submitter — non-submitter authenticated users see only the status badge for any idea they did not author.
-- Mobile-responsive display of status badges and admin comment is required in line with the existing UI conventions.
+- Admins are users with the existing admin role defined in feature 001-user-auth-management.
+- Stage 4 Final Executive Decision is performed by users who hold the admin role in v1; separate executive-only role modeling is out of scope.
+- This feature extends ideas created in feature 002-idea-submission.
+- Comments are plain text and must be non-empty for all decision actions.
+- Audit history is immutable and append-only.
+- Notification channels outside in-app timeline visibility are out of scope for v1.
+- Multi-idea bulk decisions are out of scope for v1; decisions are performed one idea at a time.
 
 ## Constitution Constraints *(non-negotiable)*
 

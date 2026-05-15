@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Idea Evaluation Workflow
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-05-14
+**Created**: 2026-05-15
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,7 +31,7 @@
 
 ## Notes
 
-- All items passed on first validation pass.
-- Notification system explicitly deferred to a future feature (assumption documented).
-- Re-evaluation flow (e.g., changing a Rejected idea to Accepted) is explicitly out of scope for v1.
-- Status lifecycle is one-directional by design — backward transitions are prohibited.
+- All items passed after in-place update of feature 003.
+- Spec now defines a strict 4-stage linear pipeline with explicit transition rules.
+- Mandatory comment requirements are enforced for every approval-to-next-stage and every rejection/final decision.
+- Audit timeline requirements are explicit: who decided, what comment, at which stage, and when.
