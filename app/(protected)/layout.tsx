@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
-import LogoutButton from '@/components/auth/LogoutButton'
-import Link from 'next/link'
+import { ProtectedShell } from '@/components/layout'
 
 export default async function ProtectedLayout({
   children,
@@ -14,63 +13,15 @@ export default async function ProtectedLayout({
     redirect('/login?reason=session_expired')
   }
 
+  if (!session.role || !session.displayName) {
+    redirect('/login?reason=session_expired')
+  }
+
   const { displayName, role } = session
 
   return (
-    <div className="min-h-screen bg-surface">
-      <nav className="border-b border-[--color-border] bg-white px-6 py-3">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div className="flex items-center gap-6">
-            <span className="font-bold text-[--color-primary]">InnovatEPAM</span>
-            {role === 'admin' ? (
-              <>
-                <Link
-                  href="/admin/dashboard"
-                  className="text-sm text-[--color-text] hover:text-[--color-primary]"
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  href="/admin/users"
-                  className="text-sm text-[--color-text] hover:text-[--color-primary]"
-                >
-                  Users
-                </Link>
-                <Link
-                  href="/admin/ideas"
-                  className="text-sm text-[--color-text] hover:text-[--color-primary]"
-                >
-                  Idea Management
-                </Link>
-                <Link
-                  href="/admin/idea-field-rules"
-                  className="text-sm text-[--color-text] hover:text-[--color-primary]"
-                >
-                  Field Rules
-                </Link>
-              </>
-            ) : (
-              <Link
-                href="/dashboard"
-                className="text-sm text-[--color-text] hover:text-[--color-primary]"
-              >
-                Dashboard
-              </Link>
-            )}
-            <Link
-              href="/ideas"
-              className="text-sm text-[--color-text] hover:text-[--color-primary]"
-            >
-              Ideas
-            </Link>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-[--color-text-muted]">{displayName}</span>
-            <LogoutButton />
-          </div>
-        </div>
-      </nav>
-      <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
-    </div>
+    <ProtectedShell role={role} displayName={displayName}>
+      {children}
+    </ProtectedShell>
   )
 }
