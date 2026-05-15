@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { IDEA_CATEGORIES } from '@/lib/db/schema'
+import { IDEA_CATEGORIES, IDEA_RATING_STAGES, type IdeaEvaluationStage, type IdeaDecisionType } from '@/lib/db/schema'
 
 export const ALLOWED_ATTACHMENT_MIME_TYPES = [
   'application/pdf',
@@ -124,6 +124,49 @@ export const decideIdeaStageSchema = z.object({
 })
 
 export type DecideIdeaStageInput = z.infer<typeof decideIdeaStageSchema>
+
+export const stageRatingInputSchema = z.object({
+  stage: z.enum(IDEA_RATING_STAGES),
+  score: z.number().int().min(1).max(5),
+})
+
+export type StageRatingInput = z.infer<typeof stageRatingInputSchema>
+
+export function isRatingRequiredForDecision(
+  stage: IdeaEvaluationStage,
+  decision: Exclude<IdeaDecisionType, 'submitted'>,
+): boolean {
+  if (stage === 'stage_2_department_review' || stage === 'stage_3_feasibility') {
+    return decision === 'approve_next'
+  }
+
+  if (stage === 'stage_4_final_executive_decision') {
+    return decision === 'final_approve' || decision === 'final_reject'
+  }
+
+  return false
+}
+
+export function validateDecisionRatingRequirement(input: {
+  stage: IdeaEvaluationStage
+  decision: Exclude<IdeaDecisionType, 'submitted'>
+  ratingScore?: number
+}): { ok: true } | { ok: false; error: string } {
+  if (!isRatingRequiredForDecision(input.stage, input.decision)) {
+    return { ok: true }
+  }
+
+  if (input.ratingScore === undefined || input.ratingScore === null) {
+    return { ok: false, error: 'RATING_REQUIRED' }
+  }
+
+  const parsed = stageRatingInputSchema.safeParse({ stage: input.stage, score: input.ratingScore })
+  if (!parsed.success) {
+    return { ok: false, error: 'INVALID_RATING_SCORE' }
+  }
+
+  return { ok: true }
+}
 
 // ---------------------------------------------------------------------------
 // Dynamic category field rules

@@ -28,6 +28,21 @@ type TransitionDecision = {
   isTerminal: boolean
 }
 
+export const STAGE_RATING_LABELS = {
+  stage_2_department_review: 'Alignment',
+  stage_3_feasibility: 'Feasibility',
+  stage_4_final_executive_decision: 'Impact',
+} as const
+
+export type StageRatingLabel = (typeof STAGE_RATING_LABELS)[keyof typeof STAGE_RATING_LABELS]
+
+export function getStageRatingLabel(stage: IdeaEvaluationStage): StageRatingLabel | null {
+  if (stage === 'stage_2_department_review') return STAGE_RATING_LABELS.stage_2_department_review
+  if (stage === 'stage_3_feasibility') return STAGE_RATING_LABELS.stage_3_feasibility
+  if (stage === 'stage_4_final_executive_decision') return STAGE_RATING_LABELS.stage_4_final_executive_decision
+  return null
+}
+
 const NEXT_STAGE_BY_STAGE: Record<IdeaEvaluationStage, IdeaEvaluationStage | null> = {
   stage_1_triage: 'stage_2_department_review',
   stage_2_department_review: 'stage_3_feasibility',

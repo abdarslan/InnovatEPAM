@@ -153,8 +153,8 @@ describe('decideIdeaStageAction invalid transitions and guards', () => {
     const { decideIdeaStageAction } = await import('@/actions/ideas')
 
     await decideIdeaStageAction({ ideaId, decision: 'approve_next', comment: 'to stage 2' })
-    await decideIdeaStageAction({ ideaId, decision: 'approve_next', comment: 'to stage 3' })
-    await decideIdeaStageAction({ ideaId, decision: 'approve_next', comment: 'to stage 4' })
+    await decideIdeaStageAction({ ideaId, decision: 'approve_next', comment: 'to stage 3', ratingScore: 4 })
+    await decideIdeaStageAction({ ideaId, decision: 'approve_next', comment: 'to stage 4', ratingScore: 3 })
 
     const result = await decideIdeaStageAction({ ideaId, decision: 'approve_next', comment: 'invalid at final stage' })
 

@@ -31,6 +31,11 @@ function formatDateTime(ts: number) {
   return new Date(ts).toLocaleString()
 }
 
+function formatRating(entry: IdeaTimelineEntry) {
+  if (!entry.ratingLabel || entry.ratingScore === undefined) return null
+  return `${entry.ratingLabel} ${entry.ratingScore}/5`
+}
+
 export function IdeaTimeline({ entries }: Props) {
   if (entries.length === 0) {
     return (
@@ -45,18 +50,22 @@ export function IdeaTimeline({ entries }: Props) {
       <p className="text-sm font-medium">Timeline</p>
 
       <ol className="space-y-3">
-        {entries.map((entry) => (
+        {entries.map((entry) => {
+          const ratingText = formatRating(entry)
+          return (
           <li key={entry.sequence} className="rounded border border-border bg-background p-3 text-sm space-y-1">
             <p className="font-medium">
               {entry.sequence}. {STAGE_LABELS[entry.stage]}
             </p>
             <p className="text-muted-foreground">Action: {ACTION_LABELS[entry.decisionType]}</p>
             <p className="text-muted-foreground">Outcome: {OUTCOME_LABELS[entry.outcome]}</p>
+            {ratingText && <p className="text-muted-foreground">Rating: {ratingText}</p>}
             <p className="text-muted-foreground">At: {formatDateTime(entry.decidedAt)}</p>
             {entry.decidedByUser && <p className="text-muted-foreground">By: {entry.decidedByUser}</p>}
             {entry.comment && <p className="text-foreground">Comment: {entry.comment}</p>}
           </li>
-        ))}
+          )
+        })}
       </ol>
     </section>
   )

@@ -144,4 +144,25 @@ describe('IdeaRow', () => {
       expect(screen.getByText('80')).toBeInTheDocument()
     })
   })
+
+  it('renders completed idea score summary for scored ideas', async () => {
+    const user = userEvent.setup()
+    const completedIdea: IdeaListItem = {
+      ...baseIdea,
+      status: 'accepted',
+      currentStage: 'stage_4_final_executive_decision',
+      currentOutcome: 'final_approved',
+      isTerminal: true,
+      alignmentRating: 4,
+      feasibilityRating: 3,
+      impactRating: 5,
+    }
+
+    render(<IdeaRow idea={completedIdea} currentUserId={42} currentUserRole="submitter" />)
+    await user.click(screen.getByRole('button', { name: /test idea title/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/scores: alignment 4\/5 \| feasibility 3\/5 \| impact 5\/5/i)).toBeInTheDocument()
+    })
+  })
 })
