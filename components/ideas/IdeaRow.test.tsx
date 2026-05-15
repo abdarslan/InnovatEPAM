@@ -15,11 +15,13 @@ vi.mock('next/navigation', () => ({
 }))
 
 const mockGetIdeaDetailAction = vi.fn()
+const mockGetIdeaTimelineAction = vi.fn()
 vi.mock('@/actions/ideas', async () => {
   const actual = await vi.importActual<typeof import('@/actions/ideas')>('@/actions/ideas')
   return {
     ...actual,
     getIdeaDetailAction: (...args: unknown[]) => mockGetIdeaDetailAction(...args),
+    getIdeaTimelineAction: (...args: unknown[]) => mockGetIdeaTimelineAction(...args),
   }
 })
 
@@ -28,6 +30,9 @@ const baseIdea: IdeaListItem = {
   title: 'Test Idea Title',
   category: 'technology_innovation',
   status: 'submitted',
+  currentStage: 'stage_1_triage',
+  currentOutcome: 'in_progress',
+  isTerminal: false,
   submitterName: 'Alice',
   submitterId: 42,
   createdAt: new Date('2026-05-01').getTime(),
@@ -51,6 +56,17 @@ describe('IdeaRow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetIdeaDetailAction.mockResolvedValue({ ok: true, data: baseDetail } satisfies ActionResult<IdeaDetail>)
+    mockGetIdeaTimelineAction.mockResolvedValue({
+      ok: true,
+      data: [
+        {
+          sequence: 1,
+          stage: 'stage_1_triage',
+          outcome: 'in_progress',
+          decidedAt: new Date('2026-05-01').getTime(),
+        },
+      ],
+    })
   })
 
   it('renders the idea header fields', () => {
@@ -66,6 +82,7 @@ describe('IdeaRow', () => {
     await user.click(screen.getByRole('button', { name: /test idea title/i }))
     await waitFor(() => {
       expect(screen.getByText('This is the full description of the test idea.')).toBeInTheDocument()
+      expect(screen.getByText(/timeline/i)).toBeInTheDocument()
     })
   })
 

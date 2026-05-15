@@ -3,16 +3,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { EvaluationPanel } from './EvaluationPanel'
 
 vi.mock('@/actions/ideas', () => ({
-  startReviewAction:  vi.fn(),
-  evaluateIdeaAction: vi.fn(),
+  decideIdeaStageAction: vi.fn(),
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
-import { startReviewAction, evaluateIdeaAction } from '@/actions/ideas'
+import { decideIdeaStageAction } from '@/actions/ideas'
 import { toast } from 'sonner'
 
-const mockStart    = startReviewAction as ReturnType<typeof vi.fn>
-const mockEvaluate = evaluateIdeaAction as ReturnType<typeof vi.fn>
+const mockDecide = decideIdeaStageAction as ReturnType<typeof vi.fn>
 const toastSuccess = (toast as unknown as { success: ReturnType<typeof vi.fn> }).success
 const toastError   = (toast as unknown as { error: ReturnType<typeof vi.fn> }).error
 
@@ -23,67 +21,99 @@ describe('EvaluationPanel', () => {
     vi.clearAllMocks()
   })
 
-  it('renders Start Review button for submitted status', () => {
-    render(<EvaluationPanel ideaId={1} currentStatus="submitted" onSuccess={onSuccess} />)
-    expect(screen.getByRole('button', { name: /start review/i })).toBeInTheDocument()
-  })
-
-  it('calls startReviewAction on button click', async () => {
-    mockStart.mockResolvedValue({ ok: true, data: undefined })
-    render(<EvaluationPanel ideaId={1} currentStatus="submitted" onSuccess={onSuccess} />)
-    fireEvent.click(screen.getByRole('button', { name: /start review/i }))
-    await waitFor(() => expect(mockStart).toHaveBeenCalledWith(1))
-    await waitFor(() => expect(onSuccess).toHaveBeenCalled())
-    expect(toastSuccess).toHaveBeenCalledWith('Review started.')
-  })
-
-  it('shows error toast when startReviewAction fails', async () => {
-    mockStart.mockResolvedValue({ ok: false, error: 'Already under review' })
-    render(<EvaluationPanel ideaId={1} currentStatus="submitted" onSuccess={onSuccess} />)
-    fireEvent.click(screen.getByRole('button', { name: /start review/i }))
-    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Already under review'))
-  })
-
-  it('renders Accept and Reject buttons for under_review status', () => {
-    render(<EvaluationPanel ideaId={2} currentStatus="under_review" onSuccess={onSuccess} />)
-    expect(screen.getByRole('button', { name: /accept/i })).toBeInTheDocument()
+  it('renders next-stage and reject actions for in-progress non-final stage', () => {
+    render(
+      <EvaluationPanel
+        ideaId={1}
+        currentStage="stage_1_triage"
+        currentOutcome="in_progress"
+        isTerminal={false}
+        onSuccess={onSuccess}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /approve to next stage/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /reject/i })).toBeInTheDocument()
   })
 
-  it('shows comment form when Accept is clicked', () => {
-    render(<EvaluationPanel ideaId={2} currentStatus="under_review" onSuccess={onSuccess} />)
-    fireEvent.click(screen.getByRole('button', { name: /accept/i }))
-    expect(screen.getByRole('button', { name: /confirm accept/i })).toBeInTheDocument()
-  })
+  it('calls decideIdeaStageAction with mandatory comment', async () => {
+    mockDecide.mockResolvedValue({ ok: true, data: undefined })
+    render(
+      <EvaluationPanel
+        ideaId={2}
+        currentStage="stage_2_department_review"
+        currentOutcome="in_progress"
+        isTerminal={false}
+        onSuccess={onSuccess}
+      />,
+    )
 
-  it('calls evaluateIdeaAction with accepted status', async () => {
-    mockEvaluate.mockResolvedValue({ ok: true, data: undefined })
-    render(<EvaluationPanel ideaId={2} currentStatus="under_review" onSuccess={onSuccess} />)
-    fireEvent.click(screen.getByRole('button', { name: /accept/i }))
-    fireEvent.click(screen.getByRole('button', { name: /confirm accept/i }))
-    await waitFor(() => expect(mockEvaluate).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'accepted', ideaId: 2 })
+    fireEvent.click(screen.getByRole('button', { name: /approve to next stage/i }))
+    fireEvent.change(screen.getByLabelText(/decision comment/i), { target: { value: 'Looks strong.' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirm decision/i }))
+
+    await waitFor(() => expect(mockDecide).toHaveBeenCalledWith(
+      expect.objectContaining({ ideaId: 2, decision: 'approve_next', comment: 'Looks strong.' }),
     ))
     await waitFor(() => expect(onSuccess).toHaveBeenCalled())
+    expect(toastSuccess).toHaveBeenCalledWith('Decision saved.')
   })
 
-  it('shows validation error when rejecting without comment', async () => {
-    render(<EvaluationPanel ideaId={2} currentStatus="under_review" onSuccess={onSuccess} />)
-    fireEvent.click(screen.getByRole('button', { name: /reject/i }))
-    // Leave comment empty and submit
-    fireEvent.submit(screen.getByRole('button', { name: /confirm reject/i }).closest('form')!)
-    await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent(/rejection reason/i)
+  it('shows validation error when comment is empty', async () => {
+    render(
+      <EvaluationPanel
+        ideaId={3}
+        currentStage="stage_3_feasibility"
+        currentOutcome="in_progress"
+        isTerminal={false}
+        onSuccess={onSuccess}
+      />,
     )
+    fireEvent.click(screen.getByRole('button', { name: /reject/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm decision/i }))
+    expect(screen.getByRole('alert')).toHaveTextContent(/decision comment is required/i)
   })
 
-  it('renders Evaluation complete for accepted status', () => {
-    render(<EvaluationPanel ideaId={3} currentStatus="accepted" onSuccess={onSuccess} />)
+  it('renders final decision actions for stage 4', () => {
+    render(
+      <EvaluationPanel
+        ideaId={4}
+        currentStage="stage_4_final_executive_decision"
+        currentOutcome="in_progress"
+        isTerminal={false}
+        onSuccess={onSuccess}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /final approve/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /final reject/i })).toBeInTheDocument()
+  })
+
+  it('renders complete state for terminal ideas', () => {
+    render(
+      <EvaluationPanel
+        ideaId={5}
+        currentStage="stage_4_final_executive_decision"
+        currentOutcome="final_approved"
+        isTerminal
+        onSuccess={onSuccess}
+      />,
+    )
     expect(screen.getByText(/evaluation complete/i)).toBeInTheDocument()
   })
 
-  it('renders Evaluation complete for rejected status', () => {
-    render(<EvaluationPanel ideaId={4} currentStatus="rejected" onSuccess={onSuccess} />)
-    expect(screen.getByText(/evaluation complete/i)).toBeInTheDocument()
+  it('shows action error toast when decision call fails', async () => {
+    mockDecide.mockResolvedValue({ ok: false, error: 'INVALID_TRANSITION' })
+    render(
+      <EvaluationPanel
+        ideaId={6}
+        currentStage="stage_1_triage"
+        currentOutcome="in_progress"
+        isTerminal={false}
+        onSuccess={onSuccess}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /approve to next stage/i }))
+    fireEvent.change(screen.getByLabelText(/decision comment/i), { target: { value: 'Go ahead.' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirm decision/i }))
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('INVALID_TRANSITION'))
   })
 })
