@@ -12,7 +12,6 @@ export default function NewIdeaPage() {
   const searchParams = useSearchParams()
   const draftIdParam = searchParams.get('draftId')
 
-  const [successId, setSuccessId] = useState<number | null>(null)
   const [draftDetail, setDraftDetail] = useState<IdeaDraftDetail | null>(null)
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null)
 
@@ -31,34 +30,6 @@ export default function NewIdeaPage() {
       setDraftDetail(result.data)
     })()
   }, [draftIdParam])
-
-  if (successId !== null) {
-    return (
-      <div className="space-y-4">
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-md bg-green-50 p-4 text-sm text-green-800"
-        >
-          Your idea has been submitted successfully!
-        </div>
-        <div className="flex gap-4">
-          <Link
-            href="/ideas"
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark"
-          >
-            View all ideas
-          </Link>
-          <button
-            onClick={() => setSuccessId(null)}
-            className="rounded-md border border-[--color-border] px-4 py-2 text-sm text-[--color-text] hover:bg-surface"
-          >
-            Submit another idea
-          </button>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="max-w-2xl">
@@ -92,9 +63,8 @@ export default function NewIdeaPage() {
         draftAction={upsertIdeaDraftAction}
         draftDefaultValues={draftDetail ?? undefined}
         existingAttachments={draftDetail?.attachments}
-        onSuccess={(id) => {
-          if (id !== undefined) setSuccessId(id)
-          else router.push('/ideas')
+        onSuccess={() => {
+          router.push('/ideas')
         }}
         onDraftSaved={(savedId) => {
           // Keep draftDetail.id in sync so the final submit can pass draftId
