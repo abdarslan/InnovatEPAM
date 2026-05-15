@@ -43,4 +43,22 @@ describe('IdeaTimeline', () => {
     expect(screen.getByText(/action: approve to next stage/i)).toBeInTheDocument()
     expect(screen.getByText(/outcome: in progress/i)).toBeInTheDocument()
   })
+
+  it('keeps evaluator attribution visible for stage 2 evaluation entries', () => {
+    const entries: IdeaTimelineEntry[] = [
+      {
+        sequence: 3,
+        stage: 'stage_2_department_review',
+        decisionType: 'approve_next',
+        outcome: 'approved_to_next_stage',
+        decidedAt: 1710000002000,
+        decidedByUser: 'Review Admin',
+      },
+    ]
+
+    render(<IdeaTimeline entries={entries} />)
+
+    expect(screen.getByText(/action: approve to next stage/i)).toBeInTheDocument()
+    expect(screen.getByText(/by: review admin/i)).toBeInTheDocument()
+  })
 })

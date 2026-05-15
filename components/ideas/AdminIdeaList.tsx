@@ -8,6 +8,23 @@ type Props = {
 }
 
 export function AdminIdeaList({ ideas, currentStatus }: Props) {
+  const projectedIdeas = ideas.map((idea) => {
+    const shouldAnonymize =
+      (idea.currentStage !== 'stage_1_triage' && idea.currentOutcome !== 'final_approved')
+      || idea.currentOutcome === 'rejected'
+      || idea.currentOutcome === 'final_rejected'
+
+    if (!shouldAnonymize) {
+      return idea
+    }
+
+    return {
+      ...idea,
+      submitterName: 'Anonymous',
+      isSubmitterAnonymous: true,
+    }
+  })
+
   return (
     <section aria-label="Idea management list">
       <div className="mb-4 flex items-center gap-2">
@@ -21,7 +38,7 @@ export function AdminIdeaList({ ideas, currentStatus }: Props) {
         <p className="text-muted-foreground text-sm">No ideas found.</p>
       ) : (
         <ul className="space-y-4">
-          {ideas.map((idea) => (
+          {projectedIdeas.map((idea) => (
             <AdminIdeaRow key={idea.id} idea={idea} />
           ))}
         </ul>

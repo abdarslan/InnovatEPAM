@@ -80,6 +80,8 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
 
   const isOwner = currentUserId === idea.submitterId
   const canDelete = isOwner || currentUserRole === 'admin'
+  const submitterDisplayName =
+    currentUserRole === 'admin' && idea.isSubmitterAnonymous ? 'Anonymous' : idea.submitterName
 
   async function handleOpenChange(open: boolean) {
     setIsOpen(open)
@@ -123,7 +125,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
               <span className="rounded bg-surface px-1.5 py-0.5 border border-[--color-border]">
                 {CATEGORY_LABELS[idea.category]}
               </span>
-              <span>{idea.submitterName}</span>
+              <span>{submitterDisplayName}</span>
               <span>{'\u00B7'}</span>
               <span>{formatDate(idea.createdAt)}</span>
               {idea.hasAttachment && (

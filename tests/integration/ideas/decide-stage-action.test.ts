@@ -100,13 +100,28 @@ describe('decideIdeaStageAction valid transitions', () => {
     const r1 = await decideIdeaStageAction({ ideaId, decision: 'approve_next', comment: 'Triage passed.' })
     expect(r1.ok).toBe(true)
 
-    const r2 = await decideIdeaStageAction({ ideaId, decision: 'approve_next', comment: 'Department approved.' })
+    const r2 = await decideIdeaStageAction({
+      ideaId,
+      decision: 'approve_next',
+      comment: 'Department approved.',
+      ratingScore: 4,
+    })
     expect(r2.ok).toBe(true)
 
-    const r3 = await decideIdeaStageAction({ ideaId, decision: 'approve_next', comment: 'Feasibility approved.' })
+    const r3 = await decideIdeaStageAction({
+      ideaId,
+      decision: 'approve_next',
+      comment: 'Feasibility approved.',
+      ratingScore: 3,
+    })
     expect(r3.ok).toBe(true)
 
-    const r4 = await decideIdeaStageAction({ ideaId, decision: 'final_approve', comment: 'Executive approval granted.' })
+    const r4 = await decideIdeaStageAction({
+      ideaId,
+      decision: 'final_approve',
+      comment: 'Executive approval granted.',
+      ratingScore: 5,
+    })
     expect(r4.ok).toBe(true)
 
     const ideaRow = testDb

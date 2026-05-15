@@ -48,11 +48,12 @@ describe('EvaluationPanel', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: /approve to next stage/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /alignment rating 4 of 5/i }))
     fireEvent.change(screen.getByLabelText(/decision comment/i), { target: { value: 'Looks strong.' } })
     fireEvent.click(screen.getByRole('button', { name: /confirm decision/i }))
 
     await waitFor(() => expect(mockDecide).toHaveBeenCalledWith(
-      expect.objectContaining({ ideaId: 2, decision: 'approve_next', comment: 'Looks strong.' }),
+      expect.objectContaining({ ideaId: 2, decision: 'approve_next', comment: 'Looks strong.', ratingScore: 4 }),
     ))
     await waitFor(() => expect(onSuccess).toHaveBeenCalled())
     expect(toastSuccess).toHaveBeenCalledWith('Decision saved.')
@@ -71,6 +72,25 @@ describe('EvaluationPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /reject/i }))
     fireEvent.click(screen.getByRole('button', { name: /confirm decision/i }))
     expect(screen.getByRole('alert')).toHaveTextContent(/decision comment is required/i)
+  })
+
+  it('requires stage 2 rating before confirming approve-next decision', async () => {
+    render(
+      <EvaluationPanel
+        ideaId={31}
+        currentStage="stage_2_department_review"
+        currentOutcome="in_progress"
+        isTerminal={false}
+        onSuccess={onSuccess}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /approve to next stage/i }))
+    fireEvent.change(screen.getByLabelText(/decision comment/i), { target: { value: 'Ready to advance' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirm decision/i }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/please select a rating before confirming/i)
+    expect(mockDecide).not.toHaveBeenCalled()
   })
 
   it('renders final decision actions for stage 4', () => {

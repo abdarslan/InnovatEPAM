@@ -88,6 +88,9 @@ export const ideas = sqliteTable('ideas', {
   isTerminal:     integer('is_terminal', { mode: 'boolean' }).notNull().default(false),
   reviewerId:     integer('reviewer_id').references(() => users.id),
   reviewStartedAt: integer('review_started_at'),
+  alignmentRating: integer('alignment_rating'),
+  feasibilityRating: integer('feasibility_rating'),
+  impactRating: integer('impact_rating'),
   createdAt:      integer('created_at').notNull(),
   updatedAt:      integer('updated_at').notNull(),
 })
@@ -115,6 +118,35 @@ export const ideaEvaluations = sqliteTable('idea_evaluations', {
 export type IdeaEvaluation    = typeof ideaEvaluations.$inferSelect
 export type NewIdeaEvaluation = typeof ideaEvaluations.$inferInsert
 
+export const IDEA_RATING_STAGES = [
+  'stage_2_department_review',
+  'stage_3_feasibility',
+  'stage_4_final_executive_decision',
+] as const
+
+export type IdeaRatingStage = typeof IDEA_RATING_STAGES[number]
+
+export const ideaRatings = sqliteTable(
+  'idea_ratings',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    ideaId: integer('idea_id').notNull().references(() => ideas.id, { onDelete: 'cascade' }),
+    stage: text('stage', { enum: IDEA_RATING_STAGES }).notNull(),
+    raterId: integer('rater_id').notNull().references(() => users.id),
+    score: integer('score').notNull(),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => ({
+    ideaStageUnique: uniqueIndex('idea_ratings_idea_id_stage_unique').on(table.ideaId, table.stage),
+    ideaStageIdx: index('idea_ratings_idea_id_stage_idx').on(table.ideaId, table.stage),
+    raterIdx: index('idea_ratings_rater_id_idx').on(table.raterId),
+  }),
+)
+
+export type IdeaRating = typeof ideaRatings.$inferSelect
+export type NewIdeaRating = typeof ideaRatings.$inferInsert
+
 export const ideaDecisionEvents = sqliteTable(
   'idea_decision_events',
   {
@@ -124,6 +156,7 @@ export const ideaDecisionEvents = sqliteTable(
     decisionType:    text('decision_type', { enum: IDEA_DECISION_TYPES }).notNull(),
     outcome:         text('outcome', { enum: IDEA_EVALUATION_OUTCOMES }).notNull(),
     comment:         text('comment'),
+    ratingId:        integer('rating_id').references(() => ideaRatings.id),
     decidedByUserId: integer('decided_by_user_id').references(() => users.id),
     decidedAt:       integer('decided_at').notNull(),
     sequence:        integer('sequence').notNull(),
