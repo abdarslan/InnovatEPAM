@@ -1,21 +1,22 @@
+#
 <!--
   SYNC IMPACT REPORT
-  Version change: 1.3.0 -> 1.4.0
+  Version change: 1.4.0 -> 1.5.0
   Modified principles:
-    - III. Minimal Dependencies (expanded with mandatory Context7 verification for critical dependency/API changes)
-    - Version Control and Task-Based Auto-Commit Workflow -> Version Control, Task-Scoped Commits, and PR Merge Gates
+    - II. Simple, Responsive UI/UX with Tailwind → II. Global Theme-Driven UI/UX (expanded, now non-negotiable)
   Added sections:
-    - 4. Feature Completion PR + Merge Gate
-    - 5. Critical Version/Documentation Freshness Gate
+    - Elevation & Depth
+    - Shapes
+    - Components
+    - Color Palette (explicit values)
   Removed sections:
     - None
   Templates updated:
-    - .specify/templates/plan-template.md ✅
-    - .specify/templates/spec-template.md ✅
-    - .specify/templates/tasks-template.md ✅
-    - .specify/extensions/git/commands/speckit.git.commit.md ✅
-    - .specify/extensions/git/README.md ✅
-  Follow-up TODOs: None
+    - .specify/templates/plan-template.md ⚠ pending review for new theme/animation requirements
+    - .specify/templates/spec-template.md ⚠ pending review for new UI/UX constraints
+    - .specify/templates/tasks-template.md ⚠ pending review for card/animation tasks
+  Follow-up TODOs:
+    - Ensure all new UI/UX requirements are reflected in feature specs and task templates
 -->
 
 # InnovatEPAM Constitution
@@ -39,13 +40,65 @@ Every unit of code MUST be readable, purposeful, and minimal.
 - Duplication MUST be eliminated through proper abstraction, not copy-paste.
 - Code complexity MUST be justified — if it cannot be explained simply, it MUST be simplified.
 
-### II. Simple, Responsive UI/UX with Tailwind (NON-NEGOTIABLE)
-Every UI component MUST be simple, responsive, and built with Tailwind CSS.
+
+### II. Global Theme-Driven UI/UX (NON-NEGOTIABLE)
+All UI/UX MUST be implemented with a global theme in mind. Every component, page, and interaction MUST align with the global theme settings defined in the design system.
 - Tailwind utility classes are the ONLY styling mechanism; no custom CSS files unless absolutely unavoidable and documented.
 - Layouts MUST be mobile-first and responsive across all breakpoints (sm, md, lg, xl).
 - UI MUST use shadcn/ui components as the primary component library — no reinventing primitives.
 - Visual hierarchy MUST be clear; users MUST be able to accomplish tasks without instruction.
-- Animations and transitions MUST serve purpose — decorative-only motion MUST be avoided.
+- All component settings (colors, typography, spacing, elevation, shape) MUST be derived from the global theme configuration.
+- **Ideas MUST use card components** styled per the global theme, with proper elevation, padding, and shape.
+- **Animations and transitions MUST be elegant, subtle, and smooth** (e.g., 200ms), serving usability and never distracting from content.
+- All interactive actions (e.g., button presses, card hovers) MUST use subtle, theme-aligned animation.
+- The color palette, elevation, shape, and component rules below are binding for all UI work.
+## Color Palette
+
+The following palette is mandatory for all UI components and states:
+
+- **Primary:** #0489ed (used for primary calls-to-action, active states, progress indicators)
+- **Secondary:** #5b79a1 (used for navigation, sidebars, headings)
+- **Tertiary:** #de7700 (used for highlights/accent actions)
+- **Neutral:** #73777f (used for secondary text, borders, scaffolding)
+- **Warning/Deletion:** Red (WCAG-compliant, e.g., #ba1a1a)
+- **Success/Pass:** Green (WCAG-compliant, e.g., #22c55e)
+- **Surface Tiers:** Off-whites and very light grays (#F8FAFC, #F1F5F9) for layered containers
+
+All color usage MUST meet accessibility contrast requirements (see Accessibility section).
+
+## Elevation & Depth
+
+To achieve "subtle depths," the design system uses Tonal Layering and Ambient Shadows:
+
+1. **Level 0 (Background):** #F8FAFC
+2. **Level 1 (Cards/Surfaces):** #FFFFFF with 1px border (#E2E8F0) and soft shadow (0px 4px 12px rgba(15,23,42,0.05))
+3. **Level 2 (Interaction/Hover):** Card lifts (0px 8px 24px rgba(15,23,42,0.08)), border darkens
+4. **Level 3 (Modals/Overlays):** Deeper shadow, backdrop blur (12px)
+
+These levels create a clear hierarchy and help users understand interactivity.
+
+## Shapes
+
+The system uses a **Soft** shape language:
+- 4px (0.25rem) radius for small components (checkboxes, small buttons)
+- 8px (0.5rem) for cards, input fields, large buttons
+- Fully rounded (pill) for high-impact elements (e.g., Submit Idea buttons, status chips)
+
+This maintains a professional, modern, and approachable feel.
+
+## Components
+
+- **Buttons:** Primary buttons are solid Primary (#0489ed) with white text. Secondary buttons use a Neutral outline. All buttons feature a 200ms transition on hover, shifting background color slightly deeper.
+- **Cards:** Core of the portal. Cards use white backgrounds, Level 1 shadows, 8px border radii, and 24px internal padding.
+- **Input Fields:** Minimal styling, 1px border (#CBD5E1) changing to Primary on focus. Labels use `label-md` type style above the field.
+- **Innovation Chips:** For tagging ideas, use low-saturation background tints of the category color with high-contrast text.
+- **Status Indicators:** Small, circular dots or subtle pills (e.g., In Review, Approved). Use green for success, neutral for neutral, primary for active.
+- **Project Lists:** Clean, row-based layout with subtle dividers. Each row has a hover state with a very light gray background.
+
+## Typography
+
+All typography MUST use **Hanken Grotesk** at all levels, with weights, sizes, and spacing as defined in the design system. Headlines use tighter letter-spacing and heavier weights; body text uses generous line heights; labels use medium/semi-bold with slight tracking.
+
 
 ### III. Minimal Dependencies
 Every external dependency MUST be justified before adoption.
@@ -284,4 +337,4 @@ To prevent git hooks from blocking documentation phases while still protecting t
 keep change history reviewable, reduce rollback risk, and prevent unverified large-scope
 implementations from landing directly on `main`.
 
-**Version**: 1.4.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-14
+**Version**: 1.5.0 | **Ratified**: 2026-05-14 | **Last Amended**: 2026-05-15
