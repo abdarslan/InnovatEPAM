@@ -135,6 +135,7 @@ export type AdminIdeaListItem = IdeaListItem & {
 export type IdeaTimelineEntry = {
   sequence: number
   stage: EvaluationStage
+  decisionType: IdeaDecisionType
   outcome: EvaluationOutcome
   decidedAt: number
   comment?: string
@@ -864,6 +865,7 @@ export async function getIdeaTimelineAction(
     .select({
       sequence: ideaDecisionEvents.sequence,
       stage: ideaDecisionEvents.stage,
+      decisionType: ideaDecisionEvents.decisionType,
       outcome: ideaDecisionEvents.outcome,
       decidedAt: ideaDecisionEvents.decidedAt,
       comment: ideaDecisionEvents.comment,
@@ -878,6 +880,7 @@ export async function getIdeaTimelineAction(
     const base: IdeaTimelineEntry = {
       sequence: row.sequence,
       stage: row.stage as EvaluationStage,
+      decisionType: row.decisionType as IdeaDecisionType,
       outcome: row.outcome as EvaluationOutcome,
       decidedAt: row.decidedAt,
     }

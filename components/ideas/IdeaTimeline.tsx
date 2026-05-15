@@ -19,6 +19,14 @@ const OUTCOME_LABELS: Record<IdeaTimelineEntry['outcome'], string> = {
   final_rejected: 'Final Rejected',
 }
 
+const ACTION_LABELS: Record<IdeaTimelineEntry['decisionType'], string> = {
+  submitted: 'Submission',
+  approve_next: 'Approve to Next Stage',
+  reject: 'Reject',
+  final_approve: 'Final Approve',
+  final_reject: 'Final Reject',
+}
+
 function formatDateTime(ts: number) {
   return new Date(ts).toLocaleString()
 }
@@ -42,6 +50,7 @@ export function IdeaTimeline({ entries }: Props) {
             <p className="font-medium">
               {entry.sequence}. {STAGE_LABELS[entry.stage]}
             </p>
+            <p className="text-muted-foreground">Action: {ACTION_LABELS[entry.decisionType]}</p>
             <p className="text-muted-foreground">Outcome: {OUTCOME_LABELS[entry.outcome]}</p>
             <p className="text-muted-foreground">At: {formatDateTime(entry.decidedAt)}</p>
             {entry.decidedByUser && <p className="text-muted-foreground">By: {entry.decidedByUser}</p>}

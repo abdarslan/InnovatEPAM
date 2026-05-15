@@ -114,6 +114,7 @@ describe('getIdeaTimelineAction visibility projection', () => {
     const submitterResult = await asSubmitter({ ideaId })
     expect(submitterResult.ok).toBe(true)
     if (!submitterResult.ok) return
+    expect(submitterResult.data[0].decisionType).toBe('submitted')
     expect(submitterResult.data[1].comment).toBe('Initial triage approved.')
     expect(submitterResult.data[1].decidedByUser).toBe('Admin User')
 
@@ -123,6 +124,7 @@ describe('getIdeaTimelineAction visibility projection', () => {
     const adminResult = await asAdmin({ ideaId })
     expect(adminResult.ok).toBe(true)
     if (!adminResult.ok) return
+    expect(adminResult.data[0].decisionType).toBe('submitted')
     expect(adminResult.data[1].comment).toBe('Initial triage approved.')
     expect(adminResult.data[1].decidedByUser).toBe('Admin User')
 

@@ -126,7 +126,9 @@ describe('getIdeaTimelineAction ordering', () => {
     if (!result.ok) return
 
     expect(result.data.map((entry) => entry.sequence)).toEqual([1, 2, 3])
+    expect(result.data.map((entry) => entry.decisionType)).toEqual(['submitted', 'approve_next', 'approve_next'])
     expect(result.data[0].stage).toBe('stage_1_triage')
     expect(result.data[0].outcome).toBe('in_progress')
+    expect(result.data[0].decisionType).toBe('submitted')
   })
 })
