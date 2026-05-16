@@ -12,6 +12,8 @@ test.describe('US1 — Global shell responsive behavior', () => {
 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.getByRole('button', { name: /open navigation|menu/i }).click()
-    await expect(page.getByRole('link', { name: /ideas/i })).toBeVisible()
+    await expect(
+      page.getByRole('navigation', { name: /primary/i }).getByRole('link', { name: /^ideas$/i }),
+    ).toBeVisible()
   })
 })

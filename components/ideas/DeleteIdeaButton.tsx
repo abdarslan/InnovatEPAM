@@ -39,7 +39,7 @@ export default function DeleteIdeaButton({ id, onDeleted }: DeleteIdeaButtonProp
     <div>
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <button className="text-xs text-red-600 hover:underline" type="button">
+          <button className="text-xs font-medium text-[var(--color-danger)] hover:underline" type="button">
             Delete
           </button>
         </AlertDialogTrigger>
@@ -55,7 +55,7 @@ export default function DeleteIdeaButton({ id, onDeleted }: DeleteIdeaButtonProp
             <AlertDialogAction
               onClick={handleConfirm}
               disabled={isPending}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              className="bg-[var(--color-danger)] text-white hover:bg-[color-mix(in_srgb,var(--color-danger)_85%,black)] focus:ring-[var(--color-danger)]"
             >
               {isPending ? 'Deleting…' : 'Delete'}
             </AlertDialogAction>

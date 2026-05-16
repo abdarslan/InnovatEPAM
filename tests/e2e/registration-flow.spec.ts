@@ -12,7 +12,7 @@ test.describe('US1 — Employee Registration Flow', () => {
     await page.getByRole('button', { name: /register/i }).click()
 
     await expect(page).toHaveURL('/dashboard')
-    await expect(page.getByText(/test user/i)).toBeVisible()
+    await expect(page.getByRole('banner').getByText('Test User', { exact: true })).toBeVisible()
   })
 
   test('shows error for non-EPAM domain', async ({ page }) => {

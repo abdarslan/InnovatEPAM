@@ -11,13 +11,15 @@ type IdeaListProps = {
 export default function IdeaList({ ideas, currentUserId, currentUserRole, onDeleted }: IdeaListProps) {
   if (ideas.length === 0) {
     return (
-      <p className="text-sm text-[--color-text-muted]">No ideas have been submitted yet.</p>
+      <div className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-6 text-sm text-[var(--color-shell-text-muted)] shadow-sm">
+        No ideas have been submitted yet.
+      </div>
     )
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-xs uppercase tracking-wide text-[--color-text-muted]">
+    <div className="space-y-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-[var(--color-shell-text-muted)]">
         {ideas.length} ideas · {ideas.reduce((sum, idea) => sum + idea.attachmentCount, 0)} attachments
       </p>
       {ideas.map((idea) => (

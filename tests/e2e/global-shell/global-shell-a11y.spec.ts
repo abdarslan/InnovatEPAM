@@ -13,10 +13,14 @@ test.describe('US1 — Global shell accessibility keyboard flow', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     const toggle = page.getByRole('button', { name: /open navigation|menu/i })
     await toggle.click()
-    await expect(page.getByRole('link', { name: /ideas/i })).toBeVisible()
+    await expect(
+      page.getByRole('navigation', { name: /primary/i }).getByRole('link', { name: /^ideas$/i }),
+    ).toBeVisible()
 
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('link', { name: /ideas/i })).not.toBeVisible()
+    await expect(
+      page.getByRole('navigation', { name: /primary/i }).getByRole('link', { name: /^ideas$/i }),
+    ).not.toBeVisible()
     await expect(toggle).toBeFocused()
   })
 })

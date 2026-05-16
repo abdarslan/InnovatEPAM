@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth/session'
 import LoginForm from '@/components/auth/LoginForm'
 import Link from 'next/link'
 import { Suspense } from 'react'
+import { PageSurface } from '@/components/layout'
 
 interface LoginPageProps {
   searchParams: Promise<{ reason?: string; returnUrl?: string }>
@@ -31,22 +32,16 @@ async function LoginPageContent({ searchParams }: LoginPageProps) {
   const showExpired = params.reason === 'session_expired'
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-[--color-text]">Sign In</h1>
-        <p className="mt-1 text-sm text-[--color-text-muted]">
-          Access your InnovatEPAM account
-        </p>
-      </div>
+    <PageSurface title="Sign In" description="Access your InnovatEPAM account">
       {showExpired && <SessionExpiredBanner />}
       <LoginForm />
-      <p className="text-center text-sm text-[--color-text-muted]">
+      <p className="text-center text-sm text-[var(--color-shell-text-muted)]">
         Don&apos;t have an account?{' '}
-        <Link href="/register" className="text-[--color-primary] hover:underline">
+        <Link href="/register" className="text-[var(--color-shell-primary)] hover:underline">
           Register
         </Link>
       </p>
-    </div>
+    </PageSurface>
   )
 }
 

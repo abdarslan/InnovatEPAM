@@ -39,31 +39,34 @@ function formatRating(entry: IdeaTimelineEntry) {
 export function IdeaTimeline({ entries }: Props) {
   if (entries.length === 0) {
     return (
-      <div className="rounded border border-border bg-muted/40 p-3 text-sm">
-        <p className="text-muted-foreground">No timeline entries yet.</p>
+      <div className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] p-4 text-sm">
+        <p className="text-[var(--color-shell-text-muted)]">No timeline entries yet.</p>
       </div>
     )
   }
 
   return (
-    <section aria-label="Idea timeline" className="rounded border border-border bg-muted/40 p-3 space-y-3">
-      <p className="text-sm font-medium">Timeline</p>
+    <section aria-label="Idea timeline" className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] p-4 space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-shell-text-muted)]">Timeline</p>
 
       <ol className="space-y-3">
         {entries.map((entry) => {
           const ratingText = formatRating(entry)
           return (
-          <li key={entry.sequence} className="rounded border border-border bg-background p-3 text-sm space-y-1">
-            <p className="font-medium">
-              {entry.sequence}. {STAGE_LABELS[entry.stage]}
-            </p>
-            <p className="text-muted-foreground">Action: {ACTION_LABELS[entry.decisionType]}</p>
-            <p className="text-muted-foreground">Outcome: {OUTCOME_LABELS[entry.outcome]}</p>
-            {ratingText && <p className="text-muted-foreground">Rating: {ratingText}</p>}
-            <p className="text-muted-foreground">At: {formatDateTime(entry.decidedAt)}</p>
-            {entry.decidedByUser && <p className="text-muted-foreground">By: {entry.decidedByUser}</p>}
-            {entry.comment && <p className="text-foreground">Comment: {entry.comment}</p>}
-          </li>
+            <li key={entry.sequence} className="grid grid-cols-[auto,1fr] gap-3">
+              <span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-[var(--color-shell-primary)]" aria-hidden="true" />
+              <div className="rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-3 text-sm space-y-1.5">
+                <p className="font-medium text-[var(--color-shell-text)]">
+                  {entry.sequence}. {STAGE_LABELS[entry.stage]}
+                </p>
+                <p className="text-[var(--color-shell-text-muted)]">Action: {ACTION_LABELS[entry.decisionType]}</p>
+                <p className="text-[var(--color-shell-text-muted)]">Outcome: {OUTCOME_LABELS[entry.outcome]}</p>
+                {ratingText && <p className="text-[var(--color-shell-text-muted)]">Rating: {ratingText}</p>}
+                <p className="text-[var(--color-shell-text-muted)]">At: {formatDateTime(entry.decidedAt)}</p>
+                {entry.decidedByUser && <p className="text-[var(--color-shell-text-muted)]">By: {entry.decidedByUser}</p>}
+                {entry.comment && <p className="text-[var(--color-shell-text)]">Comment: {entry.comment}</p>}
+              </div>
+            </li>
           )
         })}
       </ol>

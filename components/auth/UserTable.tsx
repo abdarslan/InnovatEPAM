@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { deactivateUserAction } from '@/actions/auth'
 import type { User } from '@/lib/db/schema'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   users: User[]
@@ -35,7 +36,7 @@ export default function UserTable({ users: initialUsers }: Props) {
       {successMessage && (
         <div
           role="status"
-          className="rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700"
+          className="rounded-2xl border border-[var(--color-success)] bg-[color-mix(in_srgb,var(--color-success)_10%,white)] px-4 py-3 text-sm text-[var(--color-success)]"
         >
           {successMessage}
         </div>
@@ -43,25 +44,25 @@ export default function UserTable({ users: initialUsers }: Props) {
       {errorMessage && (
         <div
           role="alert"
-          className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+          className="rounded-2xl border border-[var(--color-danger)] bg-[color-mix(in_srgb,var(--color-danger)_10%,white)] px-4 py-3 text-sm text-[var(--color-danger)]"
         >
           {errorMessage}
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-[--color-border]">
-        <table className="w-full text-sm">
-          <thead className="bg-surface">
+      <div className="overflow-x-auto rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] shadow-sm">
+        <table className="w-full min-w-[760px] text-sm">
+          <thead className="bg-[var(--color-shell-surface-muted)]/80">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-[--color-text-muted]">Email</th>
-              <th className="px-4 py-3 text-left font-medium text-[--color-text-muted]">Display Name</th>
-              <th className="px-4 py-3 text-left font-medium text-[--color-text-muted]">Role</th>
-              <th className="px-4 py-3 text-left font-medium text-[--color-text-muted]">Status</th>
-              <th className="px-4 py-3 text-left font-medium text-[--color-text-muted]">Created At</th>
-              <th className="px-4 py-3 text-left font-medium text-[--color-text-muted]">Action</th>
+              <th className="px-4 py-3 text-left font-medium text-[var(--color-shell-text-muted)]">Email</th>
+              <th className="px-4 py-3 text-left font-medium text-[var(--color-shell-text-muted)]">Display Name</th>
+              <th className="px-4 py-3 text-left font-medium text-[var(--color-shell-text-muted)]">Role</th>
+              <th className="px-4 py-3 text-left font-medium text-[var(--color-shell-text-muted)]">Status</th>
+              <th className="px-4 py-3 text-left font-medium text-[var(--color-shell-text-muted)]">Created</th>
+              <th className="px-4 py-3 text-left font-medium text-[var(--color-shell-text-muted)]">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[--color-border] bg-white">
+          <tbody className="divide-y divide-[var(--color-shell-border)] bg-[var(--color-shell-surface)]">
             {userList.map((user) => (
               <UserRow
                 key={user.id}
@@ -91,15 +92,15 @@ function UserRow({
   const createdAtFormatted = format(new Date(user.createdAt), 'dd MMM yyyy HH:mm')
 
   return (
-    <tr>
-      <td className="px-4 py-3 text-[--color-text]">{user.email}</td>
-      <td className="px-4 py-3 text-[--color-text]">{user.displayName}</td>
+    <tr className="transition-colors hover:bg-[var(--color-shell-surface-muted)]/70">
+      <td className="px-4 py-3 text-[var(--color-shell-text)]">{user.email}</td>
+      <td className="px-4 py-3 text-[var(--color-shell-text)]">{user.displayName}</td>
       <td className="px-4 py-3">
         <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
             user.role === 'admin'
-              ? 'bg-purple-50 text-purple-700'
-              : 'bg-blue-50 text-blue-700'
+              ? 'border-[var(--color-primary)] bg-[color-mix(in_srgb,var(--color-primary)_10%,white)] text-[var(--color-primary)]'
+              : 'border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] text-[var(--color-shell-text)]'
           }`}
         >
           {user.role}
@@ -107,27 +108,30 @@ function UserRow({
       </td>
       <td className="px-4 py-3">
         <span
-          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${
             user.status === 'active'
-              ? 'bg-green-50 text-green-700'
-              : 'bg-red-50 text-red-700'
+              ? 'border-[var(--color-success)] bg-[color-mix(in_srgb,var(--color-success)_10%,white)] text-[var(--color-success)]'
+              : 'border-[var(--color-danger)] bg-[color-mix(in_srgb,var(--color-danger)_10%,white)] text-[var(--color-danger)]'
           }`}
         >
           {user.status}
         </span>
       </td>
-      <td className="px-4 py-3 text-[--color-text-muted]">{createdAtFormatted}</td>
+      <td className="px-4 py-3 text-[var(--color-shell-text-muted)]">{createdAtFormatted}</td>
       <td className="px-4 py-3">
         {user.status === 'active' ? (
-          <button
+          <Button
+            type="button"
             onClick={() => onDeactivate(user.id)}
             disabled={isDisabled}
-            className="rounded-md border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-red-400"
+            variant="destructive"
+            size="sm"
+            className="shrink-0"
           >
             Deactivate
-          </button>
+          </Button>
         ) : (
-          <span className="text-xs text-[--color-text-muted]">Inactive</span>
+          <span className="text-xs text-[var(--color-shell-text-muted)]">Inactive</span>
         )}
       </td>
     </tr>

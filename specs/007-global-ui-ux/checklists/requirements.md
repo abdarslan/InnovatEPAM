@@ -32,4 +32,4 @@
 ## Notes
 
 - Constitution constraints section is retained per project governance template.
-- Global scope boundary is explicit: shell-only (sidebar, top bar, background/chrome), excluding route-specific redesign.
+- Global scope boundary is now explicit: whole-app UI and visual system, including public and authenticated routes, shared page structures, and consistent loading/empty/error states.

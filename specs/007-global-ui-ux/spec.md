@@ -1,4 +1,4 @@
-# Feature Specification: Global UI/UX Framework
+# Feature Specification: Global App UI System
 
 **Feature Branch**: `[007-global-ui-ux]`
 
@@ -6,144 +6,116 @@
 
 **Status**: Draft
 
-**Input**: User description: "Lets start a spec for global ui ux scope. This is a subset of ui of project. This only includes global items or ui elements that are out of other specifc routes like navbar, sidebar, background. there should be a sidebar at the left for navigation. At the top of that sidebar is the name and logo of the app. At the top there is a bar currently empty (search bar in the future )."
+**Input**: User description: "lets make this spec whole project ui edit center. So previously this was just global items like navbars background etc. Now apply our global theme and style to whole app. follow constiution"
 
 ## Clarifications
 
 ### Session 2026-05-15
 
-- Q: How should navigation shell behave across breakpoints? -> A: Desktop uses fixed left sidebar; tablet/mobile use off-canvas sidebar toggled from top bar.
-- Q: How should unauthorized navigation destinations be represented? -> A: Hide unauthorized navigation items entirely.
-- Q: What keyboard and focus behavior is required for mobile/tablet off-canvas navigation? -> A: Move focus to first nav item on open, trap focus while open, close on Escape, and return focus to toggle on close.
-- Q: How strictly should Aura Innovation design tokens be enforced in this global shell spec? -> A: Enforce exact core tokens and allow minor variation only for non-core decorative states.
-- Q: How should the top-bar search placeholder footprint be specified now? -> A: Reserve a stable footprint in the top bar with minimum width and fixed alignment.
+- Q: Should the shared visual system apply to auth screens as well as protected pages? → A: Apply the same core visual system to all routes, including login/register pages, with only purpose-driven layout differences.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Global Navigation Shell (Priority: P1)
+### User Story 1 - Unified App Experience (Priority: P1)
 
-As an authenticated user, I can access a consistent left sidebar and top bar on all protected pages so I can navigate core areas quickly without relearning each screen.
+As a user, I see the same brand feel and visual language across every part of the application so the product feels like one coherent experience instead of separate screens stitched together.
 
-**Why this priority**: A consistent global shell is foundational for usability and orientation across the product.
+**Why this priority**: A unified experience is the foundation for trust, orientation, and product polish across all routes.
 
-**Independent Test**: Can be fully tested by logging in and moving across protected routes to confirm the same sidebar and top bar frame remains visible and functional.
-
-**Acceptance Scenarios**:
-
-1. **Given** a user is on any protected page, **When** the page renders, **Then** left-side navigation is available for navigation.
-2. **Given** a user is on any protected page, **When** the page renders, **Then** a top bar is visible above content and remains present during route changes.
-3. **Given** the sidebar is visible, **When** the user looks at the top of the sidebar, **Then** the application logo and application name are clearly displayed.
-4. **Given** a user is on tablet or mobile, **When** the user activates the top-bar navigation toggle, **Then** the sidebar opens as an off-canvas panel from the left.
-
----
-
-### User Story 2 - Cohesive Visual Foundation (Priority: P2)
-
-As a user, I experience a coherent visual style in global UI elements so the product feels professional, reliable, and easy to parse.
-
-**Why this priority**: Global style consistency improves trust and lowers cognitive load across all route-level features.
-
-**Independent Test**: Can be tested by reviewing key protected screens and verifying shared color, typography, spacing, and elevation patterns on global chrome elements.
+**Independent Test**: Can be tested by visiting representative public and authenticated pages and confirming that typography, color hierarchy, spacing, and surface treatment are consistent.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user views global shell elements, **When** comparing sidebar, top bar, and page background, **Then** they follow the same defined color hierarchy and surface layering.
-2. **Given** text in global shell elements, **When** rendered on desktop or mobile, **Then** typography styles remain consistent and legible.
+1. **Given** a user moves between public and protected areas, **When** each page renders, **Then** the application keeps the same overall brand identity and visual rhythm.
+2. **Given** a user opens a representative page, **When** they compare headings, body text, cards, and controls, **Then** the page uses one consistent visual language.
+3. **Given** a user opens an auth page such as login or register, **When** the page renders, **Then** it follows the same core visual system as the rest of the application while keeping its own purpose-specific layout.
 
 ---
 
-### User Story 3 - Future-Ready Header Space (Priority: P3)
+### User Story 2 - Clear Page Structure Everywhere (Priority: P2)
 
-As a product team member, I have a reserved, empty top-bar region for future search capability so upcoming enhancements can be added without redesigning global layout.
+As a user, I can quickly understand where I am and what actions matter on each page because the layout and page sections follow a predictable structure across the app.
 
-**Why this priority**: This creates a stable layout contract now while reducing rework for future navigation improvements.
+**Why this priority**: Predictable structure lowers cognitive load and makes dense workflows easier to use.
 
-**Independent Test**: Can be tested by verifying the top bar includes a clearly reserved empty region that does not disrupt current content or navigation.
+**Independent Test**: Can be tested by reviewing multiple route types, including forms, lists, dashboards, and admin screens, to verify consistent page framing and section hierarchy.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user is on any protected page, **When** the top bar is displayed, **Then** a dedicated empty placeholder region is present for future search input.
-2. **Given** the placeholder region exists, **When** no search feature is enabled, **Then** no inactive controls or misleading interactions are shown.
-3. **Given** the top bar is rendered, **When** viewport size changes, **Then** the placeholder keeps a stable alignment and reserved minimum width without shifting adjacent global controls.
+1. **Given** a user opens a page with dense content, **When** the page loads, **Then** the main action area, supporting information, and page title remain easy to distinguish.
+2. **Given** a user opens a list or table view, **When** the page renders, **Then** the structure still feels aligned with the rest of the app rather than using a one-off layout.
+3. **Given** a user navigates to a form-heavy page, **When** the page loads, **Then** labels, inputs, help text, and feedback states follow the same design pattern as other pages.
 
 ---
 
-[Add more user stories as needed, each with an assigned priority]
+### User Story 3 - Responsive and Accessible UI Standards (Priority: P3)
+
+As a user on any device, I can read, navigate, and interact with the app comfortably because the interface adapts cleanly and stays accessible in all common states.
+
+**Why this priority**: The app must remain usable on small and large screens and must not introduce barriers for keyboard or low-vision users.
+
+**Independent Test**: Can be tested by resizing the browser, using keyboard-only navigation, and checking loading, empty, and error states on representative screens.
+
+**Acceptance Scenarios**:
+
+1. **Given** a user views the app on a small screen, **When** content is shown, **Then** no important controls overlap or disappear off-screen.
+2. **Given** a user uses only the keyboard, **When** they move through the app, **Then** focus states are visible and the interaction order is logical.
+3. **Given** the app shows a loading, empty, or error state, **When** the state appears, **Then** it still matches the same visual system and remains easy to understand.
+
+---
 
 ### Edge Cases
 
-- What happens when a protected route has unusually wide content that could collide with sidebar width?
-- How does the shell behave on small mobile screens where sidebar and top bar compete for vertical space?
-- What happens if the logo asset is unavailable at runtime?
-- How are very long app names handled in the sidebar header without breaking layout?
-- What happens when a user has insufficient permissions for some navigation destinations?
+- What happens when a page contains unusually dense content and needs more vertical or horizontal space than the standard layout expects?
+- How does the app handle very long page titles, labels, or user-visible names without breaking alignment?
+- What happens when an image, icon, or brand asset is unavailable?
+- How should the interface behave when a user has restricted access to a section that would otherwise be visible elsewhere in the product?
+- What happens when the app shows an empty, loading, or error state on a page that usually contains rich content?
 
 ## Requirements *(mandatory)*
 
-<!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right functional requirements.
--->
-
 ### Functional Requirements
 
-- **FR-001**: The system MUST provide a persistent global shell on protected pages consisting of a top bar and a left-side navigation system.
-- **FR-002**: The left sidebar MUST include navigation items for primary protected-area destinations.
-- **FR-003**: The top section of the left sidebar MUST display both the application logo and application name.
-- **FR-004**: The top bar MUST include a reserved empty placeholder region explicitly intended for a future search bar.
-- **FR-005**: The reserved placeholder region MUST not present interactive behavior in this release.
-- **FR-006**: Global shell elements MUST remain visually consistent across protected routes (colors, typography, spacing, and elevation behavior).
-- **FR-007**: Global shell layout MUST support desktop, tablet, and mobile viewport sizes while preserving navigation usability.
-- **FR-008**: The system MUST indicate active navigation context in the sidebar so users can identify their current destination.
-- **FR-009**: If the logo cannot be loaded, the system MUST fall back to a text-only brand header without breaking layout.
-- **FR-010**: Global shell text and control contrast MUST satisfy WCAG AA minimum contrast requirements.
-- **FR-011**: Keyboard users MUST be able to reach and use sidebar navigation in a logical tab order.
-- **FR-012**: This feature scope MUST be limited to global UI shell elements and MUST exclude route-specific page content redesign.
-- **FR-013**: On desktop, left navigation MUST render as a fixed visible sidebar.
-- **FR-014**: On tablet and mobile, left navigation MUST render as an off-canvas panel opened from a top-bar toggle.
-- **FR-015**: Sidebar navigation MUST render only destinations the current user is authorized to access.
-- **FR-016**: Unauthorized destinations MUST NOT be displayed in the sidebar in any visual state.
-- **FR-017**: When off-canvas navigation opens, keyboard focus MUST move to the first actionable navigation item.
-- **FR-018**: While off-canvas navigation is open, keyboard focus MUST be trapped within the navigation panel until it is closed.
-- **FR-019**: Pressing Escape MUST close off-canvas navigation.
-- **FR-020**: When off-canvas navigation closes, keyboard focus MUST return to the top-bar toggle that opened it.
-- **FR-021**: Global shell MUST use exact core Aura Innovation color tokens for primary action, secondary/navigation, background/surface, and text on-surface roles.
-- **FR-022**: Global shell MUST use exact core Aura Innovation typography tokens for headline and body styles.
-- **FR-023**: Minor token variation MAY be used only for non-core decorative states (for example subtle hover shading), and MUST NOT alter semantic color roles or typography hierarchy.
-- **FR-024**: The top-bar placeholder MUST reserve a stable layout footprint with fixed alignment and a defined minimum width in each responsive tier.
-- **FR-025**: Placeholder footprint sizing rules MUST prevent layout shift of adjacent top-bar controls during navigation and viewport resize.
+- **FR-001**: The system MUST present a single, recognizable visual identity across the entire application, including public and authenticated areas.
+- **FR-002**: All primary screens MUST use the same core rules for color, typography, spacing, and surface hierarchy.
+- **FR-003**: Route-specific screens MUST feel like part of the same product family even when their content purpose differs.
+- **FR-004**: The application MUST provide consistent page framing so users can identify the page title, main content, and supporting actions quickly.
+- **FR-005**: Shared UI patterns such as cards, forms, lists, tables, dialogs, alerts, and empty states MUST appear consistent wherever they are used.
+- **FR-006**: Navigation and brand areas MUST remain visually consistent across the app wherever those areas are shown.
+- **FR-007**: The layout MUST adapt cleanly to mobile, tablet, and desktop sizes without hiding important content or causing overlap.
+- **FR-008**: Interactive elements MUST provide clear visual states for default, hover, focus, active, and disabled conditions.
+- **FR-009**: Primary text and controls MUST remain readable and meet WCAG AA contrast requirements.
+- **FR-010**: The app MUST support accessible keyboard navigation on all interactive screens.
+- **FR-011**: Loading, empty, and error states MUST use the same visual system as normal content views.
+- **FR-012**: Brand headers and logo treatments MUST degrade gracefully when a visual asset is unavailable.
+- **FR-013**: The feature scope MUST cover application-wide presentation and MUST exclude changes to business logic, data rules, and feature behavior unrelated to UI.
+- **FR-014**: The app MUST avoid one-off visual exceptions that make a route feel disconnected from the rest of the product unless a separate approved exception exists.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Global Navigation Item**: Represents a destination shown in the left sidebar; includes label, destination, and active-state indicator.
-- **Brand Header**: Represents top-of-sidebar branding block; includes app name and logo asset with fallback text behavior.
-- **Top Bar Placeholder**: Represents reserved non-interactive area in the top bar intended for future search capability.
-- **Global Shell Layout Profile**: Represents layout behavior by viewport tier (desktop/tablet/mobile), including shell spacing and structure rules.
+- **Visual System**: The shared rules that define how the application looks and feels across routes and screen sizes.
+- **Page Surface**: The visible framing of a screen, including title area, content region, spacing, and supporting actions.
+- **Shared UI Pattern**: A reusable presentation pattern for common interface elements such as forms, lists, tables, and feedback states.
+- **Brand Presentation**: The app name, logo treatment, and related identity cues that tie the product together visually.
 
 ## Success Criteria *(mandatory)*
 
-<!--
-  ACTION REQUIRED: Define measurable success criteria.
-  These must be technology-agnostic and measurable.
--->
-
 ### Measurable Outcomes
 
-- **SC-001**: 100% of protected routes show the global shell (left sidebar + top bar) during manual acceptance review.
-- **SC-002**: 95% of test users can identify their current section from sidebar active-state cues within 5 seconds.
-- **SC-003**: 90% of test users can reach a target destination from sidebar navigation in two interactions or fewer.
-- **SC-004**: The global shell passes WCAG AA contrast checks for all default states in acceptance testing.
-- **SC-005**: On representative mobile and desktop viewports, no critical layout break is observed for brand header, navigation, and top-bar placeholder in acceptance testing.
-- **SC-006**: In design QA, 100% of audited core shell elements match specified core Aura Innovation color and typography tokens.
-- **SC-007**: In responsive QA, 100% of tested top-bar states preserve placeholder alignment and minimum footprint without observable layout shift in adjacent controls.
+- **SC-001**: 100% of representative public and authenticated routes pass acceptance review for consistent brand identity and shared visual language.
+- **SC-002**: At least 90% of review participants can identify the main action on a representative page within 5 seconds.
+- **SC-003**: 95% of tested screens remain readable and structurally intact across mobile, tablet, and desktop viewports.
+- **SC-004**: 100% of audited interactive elements provide visible focus states and usable keyboard interaction.
+- **SC-005**: 100% of audited text and controls meet WCAG AA contrast requirements in default states.
+- **SC-006**: 100% of representative loading, empty, and error states remain visually consistent with the rest of the app during QA review.
 
 ## Assumptions
 
-- The feature applies to authenticated/protected areas only; public auth screens are outside this scope.
-- Existing route-level pages keep their current functional behavior; only global shell framing is covered.
-- The app has a defined brand name and logo asset available or can use text fallback when unavailable.
-- The top-bar placeholder is intentionally non-interactive until a separate search feature specification is created.
-- Navigation destinations already exist and this feature focuses on how they are presented globally.
+- The feature applies to the full application surface, not just the protected shell.
+- Existing product functionality remains intact; this feature standardizes presentation rather than changing business behavior.
+- The current brand name, logo, and product identity remain in use unless a separate branding change is approved.
+- Route-specific exceptions should be rare and require a separate decision if they are needed.
+- Any future search, editing-center, or advanced personalization work will be handled by separate feature specs.
 
 ## Constitution Constraints *(non-negotiable)*
 

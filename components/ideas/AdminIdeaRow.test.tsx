@@ -92,7 +92,7 @@ describe('AdminIdeaRow', () => {
     await user.click(screen.getByRole('button', { name: /view details/i }))
 
     expect(await screen.findByText(/category details/i)).toBeInTheDocument()
-    expect(await screen.findByText(/planned date:/i)).toBeInTheDocument()
+    expect(await screen.findByText(/planned date/i)).toBeInTheDocument()
     expect(await screen.findByText('2026-11-20')).toBeInTheDocument()
   })
 

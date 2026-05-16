@@ -1,5 +1,7 @@
 import { getSession } from '@/lib/auth/session'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { PageSurface } from '@/components/layout'
 
 export default async function AdminDashboardPage() {
   const session = await getSession()
@@ -8,39 +10,33 @@ export default async function AdminDashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[--color-text]">Admin Dashboard</h1>
-        <p className="mt-1 text-sm text-[--color-text-muted]">
-          Welcome, {session.displayName}
-        </p>
-      </div>
+    <PageSurface title="Admin Dashboard" description={`Welcome, ${session.displayName}`}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border border-[--color-border] bg-white p-6">
-          <h2 className="font-semibold text-[--color-text]">User Management</h2>
-          <p className="mt-1 text-sm text-[--color-text-muted]">
+        <div className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-6 shadow-sm">
+          <h2 className="font-semibold text-[var(--color-shell-text)]">User Management</h2>
+          <p className="mt-1 text-sm text-[var(--color-shell-text-muted)]">
             Manage user accounts and permissions.
           </p>
-          <a
+          <Link
             href="/admin/users"
-            className="mt-3 inline-block text-sm text-[--color-primary] hover:underline"
+            className="mt-3 inline-block text-sm text-[var(--color-shell-primary)] transition-colors hover:underline"
           >
             View Users →
-          </a>
+          </Link>
         </div>
-        <div className="rounded-lg border border-[--color-border] bg-white p-6">
-          <h2 className="font-semibold text-[--color-text]">Idea Management</h2>
-          <p className="mt-1 text-sm text-[--color-text-muted]">
+        <div className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-6 shadow-sm">
+          <h2 className="font-semibold text-[var(--color-shell-text)]">Idea Management</h2>
+          <p className="mt-1 text-sm text-[var(--color-shell-text-muted)]">
             Review, evaluate, and manage submitted ideas.
           </p>
-          <a
+          <Link
             href="/admin/ideas"
-            className="mt-3 inline-block text-sm text-[--color-primary] hover:underline"
+            className="mt-3 inline-block text-sm text-[var(--color-shell-primary)] transition-colors hover:underline"
           >
             View Ideas →
-          </a>
+          </Link>
         </div>
       </div>
-    </div>
+    </PageSurface>
   )
 }

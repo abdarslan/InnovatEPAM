@@ -1,4 +1,5 @@
-# Implementation Plan: Global UI/UX Framework
+ios/ or android/
+# Implementation Plan: Global App UI System
 
 **Branch**: `[007-global-ui-ux]` | **Date**: 2026-05-15 | **Spec**: [spec.md](./spec.md)
 
@@ -6,52 +7,43 @@
 
 ## Summary
 
-Implement a consistent global shell for protected routes with a left navigation system and top bar, including responsive off-canvas behavior on tablet/mobile, strict accessibility behavior for focus management, authorization-aware nav visibility, and theme-driven visual consistency based on Aura Innovation core tokens.
+Standardize the entire application with one shared visual system across public, auth, and protected routes by extending the existing Tailwind v4 theme tokens and route-group layouts, reusing shadcn/ui and current shared layout components, and validating consistent responsive and accessible states with unit, integration, and E2E tests.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.x, React 18+, Next.js App Router
 
-**Primary Dependencies**: Next.js, Tailwind CSS, shadcn/ui, existing auth/session stack
+**Primary Dependencies**: Next.js, Tailwind CSS v4 (`@theme`), shadcn/ui, existing auth/session stack
 
-**Storage**: N/A for new persistence (uses existing auth/route metadata only)
+**Storage**: N/A
 
-**Testing**: Vitest + React Testing Library for unit/component, Playwright for E2E shell behavior
+**Testing**: Vitest + React Testing Library + Playwright
 
 **Target Platform**: Web (responsive desktop/tablet/mobile)
 
-**Project Type**: Full-stack Next.js monolith (UI-heavy feature scope)
+**Project Type**: Full-stack Next.js monolith
 
-**Performance Goals**:
-- Navigation shell renders without blocking page content loads
-- No observable top-bar layout shift for reserved search placeholder footprint across breakpoint changes
+**Performance Goals**: Consistent visual rendering without noticeable layout shift; page surfaces must remain stable across breakpoint changes
 
-**Constraints**:
-- Tailwind utility classes only
-- shadcn/ui-first composition
-- WCAG AA contrast and keyboard behavior compliance
-- No new dependencies unless justified and documented
+**Constraints**: Tailwind utility classes only; no new dependency; WCAG AA contrast and keyboard accessibility; no custom CSS beyond the constitution; keep UI logic isolated and composable
 
-**Scale/Scope**:
-- All protected routes using shared shell layout
-- Sidebar/top bar global elements only
-- Excludes route-specific page redesign
+**Scale/Scope**: Whole application surface, including public, auth, and protected route groups
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- [x] **I. Clean Code** — Layout, nav filtering, and accessibility control flows will remain isolated and composable.
-- [x] **II. Global Theme-Driven UI/UX** — Core tokens and shell hierarchy are explicitly defined and enforced in spec requirements.
-- [x] **III. Minimal Dependencies** — No new package is required; implementation uses existing stack.
-- [x] **III.a Documentation Freshness** — No new critical dependency/API adoption planned in this feature.
-- [x] **IV. Accessibility** — Explicit keyboard/focus requirements captured (focus enter/trap/escape/return).
-- [x] **V. Error Handling** — Fallback behavior for missing logo and non-interactive placeholder behavior are specified.
-- [x] **VI. ADRs** — No significant architecture deviation requiring new ADR (shell behavior stays within established Next.js layout patterns).
-- [x] **VII. TypeScript Strict Mode** — No relaxation; all contracts and props to remain strictly typed.
-- [x] **Testing** — Unit/component/E2E validation paths are defined for shell and responsive behavior.
-- [x] **Stack** — Fully aligned with Next.js + React + Tailwind + shadcn/ui + strict TypeScript.
-- [x] **Workflow Governance** — Plan is scoped for task-wise implementation and PR-before-merge workflow.
+- [x] **I. Clean Code** — Shared UI concerns stay isolated in route-group layouts and reusable components.
+- [x] **II. Global Theme-Driven UI/UX** — Tailwind-only styling, shadcn/ui, and responsive global theme usage are preserved.
+- [x] **III. Minimal Dependencies** — No new dependency is needed for this feature.
+- [x] **III.a Documentation Freshness** — No new critical dependency/API choice; the existing Tailwind v4 decision remains covered by ADR-0003.
+- [x] **IV. Accessibility** — Text alternatives, contrast, and keyboard navigation are explicit requirements.
+- [x] **V. Error Handling** — Loading, empty, and error states are part of the visual system scope.
+- [x] **VI. ADRs** — ADR-0014 documents the composition decision; ADR-0003 already covers the Tailwind theme decision.
+- [x] **VII. TypeScript Strict Mode** — Strict TypeScript remains required with no `any` relaxation.
+- [x] **Testing** — Vitest, React Testing Library, and Playwright remain the validation stack.
+- [x] **Stack** — Next.js App Router + React 18+ + Tailwind + shadcn/ui + TypeScript strict mode.
+- [x] **Workflow Governance** — Plan stays within the spec/plan/tasks flow and preserves PR-before-merge governance.
 
 **GATE STATUS**: PASS
 
@@ -66,51 +58,58 @@ specs/007-global-ui-ux/
 ├── data-model.md
 ├── quickstart.md
 ├── contracts/
-│   ├── global-shell-layout-contract.md
-│   ├── sidebar-authorization-visibility-contract.md
-│   └── topbar-placeholder-contract.md
-└── tasks.md            # Created by /speckit.tasks
+│   ├── visual-system-contract.md
+│   ├── page-surface-contract.md
+│   └── accessibility-state-contract.md
+└── tasks.md
 ```
 
 ### Source Code (repository root)
 
 ```text
 app/
+├── layout.tsx
+├── globals.css
+├── page.tsx
+├── (auth)/
+│   └── layout.tsx
 ├── (protected)/
-│   └── layout.tsx                  # global shell composition point
-└── globals.css                     # existing global theme surface tokens (if already defined)
+│   └── layout.tsx
+└── ...route pages...
 
 components/
-├── ui/                             # shared primitives
-└── [global-shell]/                 # sidebar/topbar components (to be created/updated)
+├── layout/
+└── ui/
 
 lib/
-└── auth/                           # role/permission info consumed for nav filtering
+├── auth/
+└── navigation/
 
 tests/
-├── integration/                    # layout/auth-visibility integration checks
-└── e2e/                            # responsive shell and keyboard-flow scenarios
+├── integration/
+└── e2e/
 ```
 
-**Structure Decision**: Keep implementation within existing protected layout and shared component boundaries; no new app module needed.
+**Structure Decision**: Keep the implementation within the existing App Router layouts and shared component directories; do not introduce a parallel design-system package or new app module.
 
 ## Phase 0: Research
 
-Research was completed to resolve implementation-direction questions from clarified requirements and constitution constraints.
-
 Output: [research.md](./research.md)
+
+Research resolved the scope questions around shared token usage, route-group composition, and whole-app state consistency.
 
 ## Phase 1: Design & Contracts
 
 Artifacts created:
 - [data-model.md](./data-model.md)
 - [quickstart.md](./quickstart.md)
-- [contracts/global-shell-layout-contract.md](./contracts/global-shell-layout-contract.md)
-- [contracts/sidebar-authorization-visibility-contract.md](./contracts/sidebar-authorization-visibility-contract.md)
-- [contracts/topbar-placeholder-contract.md](./contracts/topbar-placeholder-contract.md)
+- [contracts/visual-system-contract.md](./contracts/visual-system-contract.md)
+- [contracts/page-surface-contract.md](./contracts/page-surface-contract.md)
+- [contracts/accessibility-state-contract.md](./contracts/accessibility-state-contract.md)
+- [docs/adrs/adr-0014-global-app-ui-composition.md](../../docs/adrs/adr-0014-global-app-ui-composition.md)
 
 Post-design constitution re-check: PASS
 
 ## Complexity Tracking
 
-No constitution violations or complexity exceptions identified.
+No constitution violations or exceptions identified.

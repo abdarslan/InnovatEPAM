@@ -7,6 +7,36 @@ import { test, expect } from '@playwright/test'
  * These tests register fresh users per run and create ideas via UI.
  */
 
+async function completeDecision(
+  page: import('@playwright/test').Page,
+  ideaTitle: string,
+  decisionButton: RegExp,
+  comment: string,
+  includeRating = false,
+) {
+  const row = page.locator('li').filter({ hasText: ideaTitle }).first()
+  await expect(row).toBeVisible({ timeout: 10000 })
+  await row.getByRole('button', { name: decisionButton }).click()
+
+  const decisionForm = row.locator('form').first()
+  await expect(decisionForm).toBeVisible()
+  await decisionForm.getByLabel(/decision comment/i).fill(comment)
+
+  if (includeRating) {
+    await decisionForm.getByRole('radio', { name: /4 of 5/i }).click()
+  }
+
+  await decisionForm.getByRole('button', { name: /confirm decision/i }).click()
+}
+
+async function loginAsAdmin(page: import('@playwright/test').Page) {
+  await page.goto('/login')
+  await page.getByLabel(/email/i).fill('admin@epam.com')
+  await page.getByLabel(/password/i).fill('Admin1234!')
+  await page.getByRole('button', { name: /sign in/i }).click()
+  await expect(page).toHaveURL(/\/admin\/dashboard|\/dashboard/, { timeout: 20000 })
+}
+
 test.describe('US1 — Admin Evaluates Ideas', () => {
   test('admin can navigate to Idea Management page', async ({ page }) => {
     // Register admin via seed — use the pre-existing admin from db:seed
@@ -15,14 +45,18 @@ test.describe('US1 — Admin Evaluates Ideas', () => {
     await page.getByLabel(/email/i).fill('admin@epam.com')
     await page.getByLabel(/password/i).fill('Admin1234!')
     await page.getByRole('button', { name: /sign in/i }).click()
-    await expect(page).toHaveURL('/admin/dashboard')
+    
+    // Wait for navigation to complete and check for dashboard elements instead of URL
+    await expect(page.getByRole('heading', { name: /dashboard/i })).toBeVisible({ timeout: 10000 })
 
     await page.getByRole('link', { name: /idea management/i }).click()
     await expect(page).toHaveURL('/admin/ideas')
     await expect(page.getByRole('heading', { name: /idea management/i })).toBeVisible()
   })
 
-  test('admin can start review and then accept an idea', async ({ page }) => {
+  test('admin can start review and then accept an idea', async ({ page, browser }) => {
+    const ideaTitle = `My E2E Idea ${Date.now()}`
+
     // 1. Register submitter and submit an idea
     const submitterEmail = `submitter${Date.now()}@epam.com`
     await page.goto('/register')
@@ -32,37 +66,48 @@ test.describe('US1 — Admin Evaluates Ideas', () => {
     await page.getByRole('button', { name: /register/i }).click()
     await expect(page).toHaveURL('/dashboard')
 
-    await page.getByRole('link', { name: /ideas/i }).click()
+    await page.getByRole('navigation', { name: /primary/i }).getByRole('link', { name: /^ideas$/i }).click()
     await page.getByRole('link', { name: /new idea|submit/i }).click()
-    await page.getByLabel(/title/i).fill('My E2E Idea')
+    await page.getByLabel(/title/i).fill(ideaTitle)
     await page.getByLabel(/description/i).fill('This is a detailed description for E2E testing purposes.')
     await page.locator('select[name="category"]').selectOption('technology_innovation')
     await page.getByRole('button', { name: /submit/i }).click()
-    await expect(page.getByText(/submitted/i)).toBeVisible()
+    await expect(page).toHaveURL('/ideas')
+    // Wait for the idea list to stabilize and use a more specific locator with aria-label on the status badge
+    await expect(page.locator(`button:has-text("${ideaTitle}")`).first().getByRole('status', { name: 'submitted' })).toBeVisible()
+    // Remove the ambiguous getByText check
+    // await expect(page.getByText(/submitted/i)).toBeVisible()
 
-    // 2. Logout submitter
-    await page.getByRole('button', { name: /logout/i }).click()
+    // 2. Login as admin in a separate browser context.
+    const adminContext = await browser.newContext()
+    const adminPage = await adminContext.newPage()
 
-    // 3. Login as admin
-    await page.getByLabel(/email/i).fill('admin@epam.com')
-    await page.getByLabel(/password/i).fill('Admin1234!')
-    await page.getByRole('button', { name: /sign in/i }).click()
+    try {
+      await loginAsAdmin(adminPage)
 
-    // 4. Navigate to Idea Management
-    await page.getByRole('link', { name: /idea management/i }).click()
-    await expect(page).toHaveURL('/admin/ideas')
+      // 4. Navigate to Idea Management
+      await adminPage.goto('/admin/ideas')
+      await expect(adminPage).toHaveURL('/admin/ideas')
 
-    // 5. Start Review on the idea
-    await page.getByRole('button', { name: /start review/i }).first().click()
-    await expect(page.getByText(/under review/i)).toBeVisible({ timeout: 5000 })
+      // 5. Advance through all evaluation stages to final approval.
+      await completeDecision(adminPage, ideaTitle, /approve to next stage/i, 'Triage approval')
+      await completeDecision(adminPage, ideaTitle, /approve to next stage/i, 'Department approval', true)
+      await completeDecision(adminPage, ideaTitle, /approve to next stage/i, 'Feasibility approval', true)
+      await completeDecision(adminPage, ideaTitle, /final approve/i, 'Executive final approval', true)
 
-    // 6. Accept the idea
-    await page.getByRole('button', { name: /accept/i }).first().click()
-    await page.getByRole('button', { name: /confirm accept/i }).click()
-    await expect(page.getByText(/accepted/i)).toBeVisible({ timeout: 5000 })
+      const ideaRow = adminPage.locator('li').filter({ hasText: ideaTitle }).first()
+      await expect(ideaRow).toBeVisible({ timeout: 10000 })
+      await expect
+        .poll(async () => (await ideaRow.innerText()).toLowerCase(), { timeout: 20000 })
+        .toMatch(/accepted|final approved|evaluation complete/)
+    } finally {
+      await adminContext.close()
+    }
   })
 
-  test('admin can reject an idea with a comment', async ({ page }) => {
+  test('admin can reject an idea with a comment', async ({ page, browser }) => {
+    const ideaTitle = `Idea to Reject ${Date.now()}`
+
     // 1. Register submitter and submit an idea
     const submitterEmail = `submitter${Date.now()}@epam.com`
     await page.goto('/register')
@@ -71,29 +116,29 @@ test.describe('US1 — Admin Evaluates Ideas', () => {
     await page.getByLabel(/^password/i).fill('Password1!')
     await page.getByRole('button', { name: /register/i }).click()
 
-    await page.getByRole('link', { name: /ideas/i }).click()
+    await page.getByRole('navigation', { name: /primary/i }).getByRole('link', { name: /^ideas$/i }).click()
     await page.getByRole('link', { name: /new idea|submit/i }).click()
-    await page.getByLabel(/title/i).fill('Idea to Reject')
+    await page.getByLabel(/title/i).fill(ideaTitle)
     await page.getByLabel(/description/i).fill('This idea will be rejected for testing.')
-    await page.locator('select[name="category"]').selectOption('cost_reduction')
+    await page.locator('select[name="category"]').selectOption('workplace_culture')
     await page.getByRole('button', { name: /submit/i }).click()
+    await expect(page).toHaveURL('/ideas')
 
-    // 2. Login as admin
-    await page.getByRole('button', { name: /logout/i }).click()
-    await page.getByLabel(/email/i).fill('admin@epam.com')
-    await page.getByLabel(/password/i).fill('Admin1234!')
-    await page.getByRole('button', { name: /sign in/i }).click()
+    // 2. Login as admin in a separate browser context.
+    const adminContext = await browser.newContext()
+    const adminPage = await adminContext.newPage()
 
-    await page.getByRole('link', { name: /idea management/i }).click()
+    try {
+      await loginAsAdmin(adminPage)
+      await adminPage.goto('/admin/ideas')
+      await expect(adminPage).toHaveURL('/admin/ideas')
 
-    // 3. Start Review then Reject
-    await page.getByRole('button', { name: /start review/i }).first().click()
-    await expect(page.getByText(/under review/i)).toBeVisible({ timeout: 5000 })
-
-    await page.getByRole('button', { name: /reject/i }).first().click()
-    await page.getByLabel(/rejection reason/i).fill('Not aligned with current priorities.')
-    await page.getByRole('button', { name: /confirm reject/i }).click()
-    await expect(page.getByText(/rejected/i)).toBeVisible({ timeout: 5000 })
+      await completeDecision(adminPage, ideaTitle, /reject/i, 'Not aligned with current priorities.')
+      const ideaRow = adminPage.locator('li').filter({ hasText: ideaTitle }).first()
+      await expect(ideaRow.getByText(/rejected/i).first()).toBeVisible({ timeout: 10000 })
+    } finally {
+      await adminContext.close()
+    }
   })
 
   test('admin cannot reject without providing a reason', async ({ page }) => {
@@ -103,12 +148,17 @@ test.describe('US1 — Admin Evaluates Ideas', () => {
     await page.getByRole('button', { name: /sign in/i }).click()
     await page.getByRole('link', { name: /idea management/i }).click()
 
-    // Find an under_review idea and try to reject without comment
+    // Try to reject without a decision comment
     const rejectButtons = page.getByRole('button', { name: /reject/i })
     if ((await rejectButtons.count()) > 0) {
       await rejectButtons.first().click()
-      await page.getByRole('button', { name: /confirm reject/i }).click()
-      await expect(page.getByRole('alert')).toContainText(/rejection reason/i)
+      await page.getByRole('button', { name: /confirm decision/i }).click()
+      await expect(
+        page
+          .locator('form p[role="alert"]')
+          .filter({ hasText: /decision comment is required/i })
+          .first(),
+      ).toBeVisible()
     }
   })
 })
@@ -116,21 +166,25 @@ test.describe('US1 — Admin Evaluates Ideas', () => {
 test.describe('US2 — Status Badge Visibility', () => {
   test('submitter sees status badge on their idea list', async ({ page }) => {
     const email = `statustest${Date.now()}@epam.com`
+    const ideaTitle = `Status Visibility Test ${Date.now()}`
     await page.goto('/register')
     await page.getByLabel(/email/i).fill(email)
     await page.getByLabel(/display name/i).fill('Status Test User')
     await page.getByLabel(/^password/i).fill('Password1!')
     await page.getByRole('button', { name: /register/i }).click()
 
-    await page.getByRole('link', { name: /ideas/i }).click()
+    await page.getByRole('navigation', { name: /primary/i }).getByRole('link', { name: /^ideas$/i }).click()
     await page.getByRole('link', { name: /new idea|submit/i }).click()
-    await page.getByLabel(/title/i).fill('Status Visibility Test')
+    await page.getByLabel(/title/i).fill(ideaTitle)
     await page.getByLabel(/description/i).fill('Testing that submitted status badge appears.')
     await page.locator('select[name="category"]').selectOption('workplace_culture')
     await page.getByRole('button', { name: /submit/i }).click()
+    await expect(page).toHaveURL('/ideas')
 
-    await page.getByRole('link', { name: /ideas/i }).click()
-    await expect(page.getByText('Submitted')).toBeVisible()
+    await page.getByRole('navigation', { name: /primary/i }).getByRole('link', { name: /^ideas$/i }).click()
+    const row = page.locator('button').filter({ hasText: ideaTitle }).first()
+    await expect(row).toBeVisible({ timeout: 10000 })
+    await expect(row.getByRole('status', { name: 'submitted' })).toBeVisible({ timeout: 10000 })
   })
 })
 

@@ -1,90 +1,37 @@
-# Quickstart: Global UI/UX Framework
+# Quickstart: Global App UI System
 
 ## Goal
 
-Implement and validate a consistent global shell for protected routes with responsive navigation, accessibility-compliant off-canvas behavior, authorization-aware nav visibility, and theme-driven token consistency.
+Verify that the application presents one shared visual system across public, auth, and protected routes.
 
-## 1. Implement Global Shell Composition
+## Review Checklist
+1. Open a public route such as the login or register screen.
+2. Open a protected route such as the dashboard or ideas area.
+3. Compare typography, spacing, color hierarchy, cards, form fields, and feedback states.
+4. Resize the viewport to mobile, tablet, and desktop widths.
+5. Confirm keyboard navigation and visible focus states on interactive elements.
+6. Check loading, empty, and error states on representative screens.
 
-1. Update protected layout composition to include:
-   - Left navigation container
-   - Top bar container
-   - Reserved non-interactive top-bar placeholder
-2. Ensure shell wraps all protected routes.
-
-## 2. Implement Responsive Navigation Behavior
-
-1. Desktop:
-   - Sidebar visible and fixed.
-2. Tablet/mobile:
-   - Sidebar opened from top-bar toggle as off-canvas panel.
-3. Ensure transition between breakpoint modes does not leave stale open state.
-
-## 3. Implement Authorization-Aware Visibility
-
-1. Compute authorized nav destinations from existing user/session context.
-2. Render only authorized destinations in sidebar.
-3. Validate active route indicator only for rendered destinations.
-
-## 4. Implement Accessibility Controls (Off-canvas)
-
-1. On open, focus first actionable navigation item.
-2. Trap focus while panel is open.
-3. Close on Escape.
-4. Restore focus to opener toggle on close.
-
-## 5. Enforce Theme and Placeholder Contracts
-
-1. Apply exact core Aura Innovation tokens for semantic shell colors and headline/body typography.
-2. Keep non-core decorative variation subtle and non-semantic.
-3. Reserve stable placeholder alignment and minimum width across breakpoints.
-
-## 6. Verification Checklist
-
-1. Route coverage:
-   - All protected routes show sidebar + top bar shell.
-2. Responsive behavior:
-   - Desktop fixed sidebar.
-   - Tablet/mobile off-canvas via top toggle.
-3. Authorization behavior:
-   - Unauthorized destinations not rendered at all.
-4. Accessibility:
-   - Focus enter/trap/escape/restore works with keyboard only.
-5. Theming:
-   - Core shell tokens match specified design tokens.
-6. Placeholder stability:
-   - No adjacent control layout shift during resize/navigation.
-
-## 7. Suggested Test Scope
-
-- Unit/component:
-  - Sidebar render filter logic
-  - Active state indicator logic
-  - Off-canvas focus lifecycle behavior
-- Integration:
-  - Protected layout shell composition + auth-derived nav
-- E2E:
-  - Keyboard-only mobile drawer flow
-  - Cross-breakpoint shell behavior
-
-## 8. Final Verification Commands and Evidence
-
-Run these commands from repository root:
+## Validation Commands
 
 ```bash
 npm run type-check
 npm run lint
-npx vitest run components/layout/BrandHeader.test.tsx components/layout/SearchPlaceholder.test.tsx tests/integration/global-shell/global-shell-theme-contract.test.tsx tests/integration/global-shell/topbar-placeholder-contract.test.tsx
-npx playwright test tests/e2e/global-shell/global-shell-theme.spec.ts
-npx playwright test tests/e2e/global-shell/global-shell-placeholder.spec.ts
+npx vitest run components/layout/PageSurface.test.tsx components/layout/StateSurface.test.tsx
 ```
 
-Current evidence snapshot:
+## Implementation Notes
+- Keep styling in Tailwind utilities and the existing `@theme` token system.
+- Prefer shared shadcn/ui components for buttons, cards, dialogs, inputs, and alerts.
+- Update route-group layouts and shared layout components rather than introducing new visual frameworks.
+- Preserve the same core visual identity across auth and protected routes; only the layout purpose should differ.
+- During the current implementation phase, keep validation at component scope; integration and E2E work are deferred.
 
-1. Type checking passes (`tsc --noEmit`).
-2. Lint passes with pre-existing warnings outside this feature scope:
-   - tests/e2e/idea-draft-flow.spec.ts
-   - tests/integration/ideas/draft-actions.test.ts
-3. New US2/US3 unit and integration tests pass (7/7).
-4. US2 theme E2E and US3 placeholder E2E each pass when run individually.
-5. Running multiple global-shell E2E specs in one command is currently unstable in local Next dev mode due intermittent framework/runtime issues (for example `clientReferenceManifest` invariant and occasional register-flow timing instability).
+## Success Evidence
+- Representative routes look like one product.
+- Shared UI states feel consistent everywhere.
+- No important control is hidden or overlapped at standard breakpoints.
+- Loading, empty, and error states still fit the same visual system.
+- Current evidence: root layout, auth layout, shared page/state surfaces, and representative route pages have been updated to the shared visual system.
+- Current component validation: `PageSurface.test.tsx` and `StateSurface.test.tsx` pass.
+- Covered route examples now include login, register, dashboard, ideas, admin dashboard, admin users, admin ideas, admin idea field rules, and access-denied.

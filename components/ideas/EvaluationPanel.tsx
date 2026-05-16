@@ -97,12 +97,12 @@ export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTermin
 
   if (!isTerminal && currentOutcome === 'in_progress') {
     return (
-      <div className="mt-2 space-y-2">
-        <p className="text-sm text-muted-foreground">
+      <div className="space-y-3">
+        <p className="text-sm text-[var(--color-shell-text-muted)]">
           Current step: {STAGE_LABELS[currentStage]}
         </p>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-2">
           {decisionOptions.map((option) => (
             <Button
               key={option.value}
@@ -114,6 +114,11 @@ export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTermin
               }}
               disabled={isPending}
               aria-label={option.label}
+              className={
+                option.variant === 'destructive'
+                  ? 'min-w-[9rem] hover:bg-[var(--color-danger)]/85 hover:text-white'
+                  : 'min-w-[9rem] hover:bg-[var(--color-primary)]/90 hover:text-white'
+              }
             >
               {option.label}
             </Button>
@@ -126,7 +131,7 @@ export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTermin
               e.preventDefault()
               handleDecision(activeAction)
             }}
-            className="space-y-2"
+            className="space-y-3 rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-4"
           >
             {STAGE_RATING_LABELS[currentStage] && (
               <div>
@@ -141,7 +146,7 @@ export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTermin
                   }}
                 />
                 {ratingError && (
-                  <p role="alert" className="mt-1 text-sm text-destructive">
+                  <p role="alert" className="mt-1 text-sm text-[var(--color-danger)]">
                     {ratingError}
                   </p>
                 )}
@@ -149,7 +154,7 @@ export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTermin
             )}
 
             <div>
-              <label htmlFor={`comment-${ideaId}`} className="block text-sm font-medium mb-1">
+              <label htmlFor={`comment-${ideaId}`} className="mb-1 block text-sm font-medium text-[var(--color-shell-text)]">
                 Decision comment (required)
               </label>
               <textarea
@@ -157,16 +162,16 @@ export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTermin
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 rows={3}
-                className="w-full rounded border border-input bg-background px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] px-3 py-2 text-sm text-[var(--color-shell-text)] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-shell-focus)]"
                 placeholder="Explain this decision..."
               />
               {commentError && (
-                <p role="alert" className="mt-1 text-sm text-destructive">
+                <p role="alert" className="mt-1 text-sm text-[var(--color-danger)]">
                   {commentError}
                 </p>
               )}
             </div>
-            <Button type="submit" size="sm" disabled={isPending}>
+            <Button type="submit" size="sm" disabled={isPending} className="min-w-[8rem]">
               {isPending ? 'Saving…' : 'Confirm Decision'}
             </Button>
           </form>
@@ -176,7 +181,7 @@ export function EvaluationPanel({ ideaId, currentStage, currentOutcome, isTermin
   }
 
   return (
-    <p className="mt-2 text-sm text-muted-foreground" aria-label="Evaluation complete">
+    <p className="text-sm text-[var(--color-shell-text-muted)]" aria-label="Evaluation complete">
       Evaluation complete at {STAGE_LABELS[currentStage]}.
     </p>
   )

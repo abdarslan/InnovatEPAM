@@ -25,21 +25,27 @@ type DraftListProps = {
 export default function DraftList({ drafts }: DraftListProps) {
   if (drafts.length === 0) {
     return (
-      <p className="text-sm text-[--color-text-muted]">
+      <div className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-6 text-sm text-[var(--color-shell-text-muted)] shadow-sm">
         No drafts yet. Start a new idea and click <strong>Save Draft</strong> to save your progress.
-      </p>
+      </div>
     )
   }
 
   return (
-    <ul className="divide-y divide-[--color-border] rounded-md border border-[--color-border]" aria-label="Your drafts">
+    <ul
+      aria-label="Your drafts"
+      className="overflow-hidden rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] shadow-sm"
+    >
       {drafts.map((draft) => (
-        <li key={draft.id} className="flex items-center justify-between gap-4 p-4">
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <p className="truncate text-sm font-medium text-[--color-text]">
-              {draft.title ?? <span className="italic text-[--color-text-muted]">Untitled draft</span>}
+        <li
+          key={draft.id}
+          className="flex items-center justify-between gap-4 border-t border-[var(--color-shell-border)] px-5 py-4 first:border-t-0"
+        >
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="truncate text-sm font-semibold text-[var(--color-shell-text)]">
+              {draft.title ?? <span className="italic text-[var(--color-shell-text-muted)]">Untitled draft</span>}
             </p>
-            <p className="text-xs text-[--color-text-muted]">
+            <p className="text-xs text-[var(--color-shell-text-muted)]">
               {draft.category ? CATEGORY_LABELS[draft.category as IdeaCategory] : 'No category'}
               {' · '}
               Last saved{' '}
@@ -50,7 +56,7 @@ export default function DraftList({ drafts }: DraftListProps) {
           </div>
           <Link
             href={`/ideas/new?draftId=${draft.id}`}
-            className="shrink-0 rounded-md border border-[--color-border] px-3 py-1.5 text-xs font-medium text-[--color-text] hover:bg-[--color-surface]"
+            className="shrink-0 rounded-full border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] px-3 py-1.5 text-xs font-medium text-[var(--color-shell-text)] transition-colors hover:bg-[var(--color-shell-surface-muted)]/80"
             aria-label={`Continue draft: ${draft.title ?? 'Untitled draft'}`}
           >
             Continue

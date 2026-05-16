@@ -18,7 +18,7 @@ test.describe('US3 — Topbar placeholder stability', () => {
     const before = await placeholder.boundingBox()
     expect(before).not.toBeNull()
 
-    await page.getByRole('link', { name: /ideas/i }).click()
+    await page.getByRole('navigation', { name: /primary/i }).getByRole('link', { name: /^ideas$/i }).click()
     await expect(page).toHaveURL('/ideas')
 
     const after = await placeholder.boundingBox()

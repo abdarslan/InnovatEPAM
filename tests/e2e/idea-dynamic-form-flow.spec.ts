@@ -10,7 +10,7 @@ test('submits event plan idea with optional dynamic fields left empty', async ({
   await page.getByRole('button', { name: /register/i }).click()
   await expect(page).toHaveURL('/dashboard')
 
-  await page.getByRole('link', { name: /ideas/i }).click()
+  await page.getByRole('navigation', { name: /primary/i }).getByRole('link', { name: /^ideas$/i }).click()
   await page.getByRole('link', { name: /new idea|submit/i }).click()
 
   await page.getByLabel(/title/i).fill('Event Plan Without Optional Fields')
@@ -22,9 +22,7 @@ test('submits event plan idea with optional dynamic fields left empty', async ({
 
   await page.getByRole('button', { name: /submit/i }).click()
 
-  await expect(page.getByRole('status')).toContainText(/submitted successfully/i)
-
-  await page.getByRole('link', { name: /view all ideas/i }).click()
+  await expect(page).toHaveURL('/ideas')
   await expect(page.getByText(/event plan without optional fields/i).first()).toBeVisible()
 })
 
@@ -38,7 +36,7 @@ test('drops non-applicable dynamic values after category switch', async ({ page 
   await page.getByRole('button', { name: /register/i }).click()
   await expect(page).toHaveURL('/dashboard')
 
-  await page.getByRole('link', { name: /ideas/i }).click()
+  await page.getByRole('navigation', { name: /primary/i }).getByRole('link', { name: /^ideas$/i }).click()
   await page.getByRole('link', { name: /new idea|submit/i }).click()
 
   await page.getByLabel(/title/i).fill('Switch Category Drops Values')
@@ -54,9 +52,7 @@ test('drops non-applicable dynamic values after category switch', async ({ page 
 
   await page.getByRole('button', { name: /submit/i }).click()
 
-  await expect(page.getByRole('status')).toContainText(/submitted successfully/i)
-
-  await page.getByRole('link', { name: /view all ideas/i }).click()
+  await expect(page).toHaveURL('/ideas')
   await expect(page.getByText(/switch category drops values/i).first()).toBeVisible()
   await expect(page.getByText(/2026-12-10/i)).toHaveCount(0)
 })

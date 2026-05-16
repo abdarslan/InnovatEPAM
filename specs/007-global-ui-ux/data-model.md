@@ -1,100 +1,88 @@
-# Data Model: Global UI/UX Framework
+# Data Model: Global App UI System
 
-## Overview
-
-This feature adds no new database persistence. The model is UI-domain and contract-driven.
+This feature does not introduce new persistence entities. The model below describes the shared UI concepts that must stay consistent across the application.
 
 ## Entities
 
-## 1. GlobalNavigationItem
+### VisualThemeTokenSet
+- **Purpose**: The shared token set that defines color, typography, spacing, elevation, radius, and focus styling.
+- **Fields**:
+  - `primaryColor`
+  - `secondaryColor`
+  - `tertiaryColor`
+  - `neutralColor`
+  - `surfaceLevels`
+  - `textColors`
+  - `fontFamilies`
+  - `radiusScale`
+  - `elevationScale`
+- **Validation rules**:
+  - Tokens must map to the approved global theme.
+  - Contrast-sensitive tokens must satisfy WCAG AA.
+  - Decorative variations must not change semantic roles.
 
-- Purpose: Represents one visible destination in left navigation.
-- Fields:
-  - id: string
-  - label: string
-  - href: string
-  - iconKey: string (optional)
-  - isActive: boolean
-  - isAuthorized: boolean (computed before render)
-- Rules:
-  - Render only when isAuthorized is true.
-  - Exactly one item may be active per route context.
+### ScreenSurfaceProfile
+- **Purpose**: The structure of a screen, including title area, content area, supporting actions, and state surfaces.
+- **Fields**:
+  - `routeCategory`
+  - `pageTitleArea`
+  - `mainContentRegion`
+  - `supportingActionArea`
+  - `stateSurfaceRules`
+  - `responsiveLayoutRules`
+- **Relationships**:
+  - Uses one `VisualThemeTokenSet`.
+  - May reuse one or more `SharedUiPattern` definitions.
+- **Validation rules**:
+  - Must preserve a recognizable page hierarchy.
+  - Must remain stable across mobile, tablet, and desktop sizes.
 
-## 2. BrandHeader
+### SharedUiPattern
+- **Purpose**: A reusable presentation pattern for common UI surfaces.
+- **Fields**:
+  - `patternName`
+  - `allowedVariants`
+  - `defaultState`
+  - `hoverState`
+  - `focusState`
+  - `activeState`
+  - `disabledState`
+  - `loadingState`
+  - `emptyState`
+  - `errorState`
+- **Relationships**:
+  - Inherits `VisualThemeTokenSet` rules.
+  - Is used by multiple `ScreenSurfaceProfile` instances.
+- **Validation rules**:
+  - State transitions must remain visually consistent.
+  - Each state must be readable and accessible.
 
-- Purpose: Represents top-of-sidebar identity block.
-- Fields:
-  - appName: string
-  - logoSrc: string | null
-  - hasLogoFallback: boolean
-- Rules:
-  - If logo cannot be loaded, appName remains visible with text-only fallback.
-  - Must remain layout-stable for long app names.
-
-## 3. TopBarPlaceholder
-
-- Purpose: Non-interactive reserved region for future search.
-- Fields:
-  - alignment: "left" | "center" | "right"
-  - minWidthByBreakpoint: { mobile: string; tablet: string; desktop: string }
-  - isInteractive: false
-- Rules:
-  - Always non-interactive in this feature scope.
-  - Maintains stable footprint to avoid layout shift on resize/navigation.
-
-## 4. ShellViewportMode
-
-- Purpose: Defines shell rendering strategy by breakpoint.
-- Values:
-  - desktopFixedSidebar
-  - tabletOffCanvas
-  - mobileOffCanvas
-- Rules:
-  - Desktop mode keeps sidebar visible.
-  - Tablet/mobile require toggle + off-canvas pattern.
-
-## 5. OffCanvasFocusSession
-
-- Purpose: Tracks accessibility state while mobile/tablet drawer is open.
-- Fields:
-  - openedFromToggleId: string
-  - firstFocusableNavItemId: string
-  - focusTrapEnabled: boolean
-  - isOpen: boolean
-- Rules:
-  - On open: focus firstFocusableNavItemId.
-  - While open: focus trap enabled.
-  - On Escape or close action: close and restore focus to openedFromToggleId.
-
-## Relationships
-
-- ShellViewportMode controls how GlobalNavigationItem collection is displayed.
-- BrandHeader is a fixed child of sidebar container.
-- TopBarPlaceholder is a fixed child of top bar layout.
-- OffCanvasFocusSession applies only in tabletOffCanvas/mobileOffCanvas modes.
-
-## Derived/Computed Data
-
-- AuthorizedNavItems = filter(GlobalNavigationItem, isAuthorized == true)
-- ActiveNavItem = AuthorizedNavItems where isActive == true
-- PlaceholderFootprint = minWidthByBreakpoint[currentBreakpoint]
+### BrandPresentation
+- **Purpose**: The application identity treatment shown across routes.
+- **Fields**:
+  - `appName`
+  - `logoAsset`
+  - `fallbackText`
+  - `displayRules`
+- **Relationships**:
+  - Uses the global theme tokens.
+  - Appears in auth and protected layouts where branding is shown.
+- **Validation rules**:
+  - Must degrade gracefully if the logo asset is unavailable.
+  - Must not break layout when the app name is long.
 
 ## State Transitions
 
-## Off-canvas lifecycle
+### Shared UI State Flow
+- `default` -> `hover` / `focus` / `active` / `disabled`
+- `loading` -> `ready`
+- `ready` -> `empty` / `error`
 
-1. closed -> opening
-2. opening -> open (focus moved to first actionable nav item)
-3. open -> closing (Escape, overlay click, explicit close)
-4. closing -> closed (focus restored to toggle)
+### Layout Flow
+- Public route surface -> Auth route surface -> Protected route surface
+- Each surface remains part of the same visual system, even when the page purpose changes.
 
-## Breakpoint lifecycle
+## Notes
 
-1. desktopFixedSidebar -> tabletOffCanvas (on downsize)
-2. tabletOffCanvas -> mobileOffCanvas (on further downsize)
-3. mobile/tablet off-canvas -> desktopFixedSidebar (on upsize; close drawer if open)
-
-## Validation Notes
-
-- Authorization filtering is mandatory before render; no unauthorized ghost entries.
-- Top-bar placeholder contract is validated by layout stability checks across responsive states.
+- The feature is presentation-only and does not add new persisted data.
+- Route-specific exceptions should remain rare and explicit.

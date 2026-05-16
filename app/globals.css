@@ -12,9 +12,11 @@
   --color-neutral: #73777f;
   --color-background: #ffffff;
   --color-surface: #f9fafb;
+  --color-surface-muted: #f1f5f9;
   --color-border: #e5e7eb;
   --color-text: #111827;
   --color-text-muted: #6b7280;
+  --color-text-inverse: #ffffff;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
@@ -32,6 +34,8 @@
   --color-shell-text-muted: var(--color-text-muted);
   --color-shell-primary: var(--color-primary);
   --color-shell-focus: var(--color-primary-dark);
+  --color-shell-surface-muted: var(--color-surface-muted);
+  --color-shell-text-inverse: var(--color-text-inverse);
 
   --font-shell-headline: var(--font-sans);
   --font-shell-body: var(--font-sans);

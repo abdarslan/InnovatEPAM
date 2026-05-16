@@ -73,16 +73,24 @@ describe('IdeaRow', () => {
     render(<IdeaRow idea={baseIdea} currentUserId={42} currentUserRole="submitter" />)
     expect(screen.getByText('Test Idea Title')).toBeInTheDocument()
     expect(screen.getByText('Technology Innovation')).toBeInTheDocument()
-    expect(screen.getByText('Alice')).toBeInTheDocument()
+    expect(screen.getByText(/Alice\s+on\s+1 May 2026/i)).toBeInTheDocument()
   })
 
-  it('reveals description after expanding', async () => {
+  it('reveals description after expanding and closes again on second click', async () => {
     const user = userEvent.setup()
     render(<IdeaRow idea={baseIdea} currentUserId={42} currentUserRole="submitter" />)
-    await user.click(screen.getByRole('button', { name: /test idea title/i }))
+    const toggleButton = screen.getByRole('button', { name: /test idea title/i })
+
+    await user.click(toggleButton)
     await waitFor(() => {
       expect(screen.getByText('This is the full description of the test idea.')).toBeInTheDocument()
       expect(screen.getByText(/timeline/i)).toBeInTheDocument()
+    })
+
+    await user.click(toggleButton)
+    await waitFor(() => {
+      expect(screen.queryByText('This is the full description of the test idea.')).not.toBeInTheDocument()
+      expect(screen.queryByText(/timeline/i)).not.toBeInTheDocument()
     })
   })
 

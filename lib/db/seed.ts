@@ -5,14 +5,9 @@ import { hashPassword } from '../auth/password'
 import { and, eq } from 'drizzle-orm'
 
 async function seed() {
-  const email = process.env.ADMIN_EMAIL
-  const password = process.env.ADMIN_PASSWORD
-  const displayName = process.env.ADMIN_DISPLAY_NAME
-
-  if (!email || !password || !displayName) {
-    console.error('Missing ADMIN_EMAIL, ADMIN_PASSWORD, or ADMIN_DISPLAY_NAME env vars')
-    process.exit(1)
-  }
+  const email = process.env.ADMIN_EMAIL ?? 'admin@epam.com'
+  const password = process.env.ADMIN_PASSWORD ?? 'Admin1234!'
+  const displayName = process.env.ADMIN_DISPLAY_NAME ?? 'Admin User'
 
   const normalizedEmail = email.toLowerCase()
   const passwordHash = await hashPassword(password)

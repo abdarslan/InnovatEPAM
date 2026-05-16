@@ -6,6 +6,7 @@ import IdeaForm from '@/components/ideas/IdeaForm'
 import { submitIdeaAction } from '@/actions/ideas'
 import { upsertIdeaDraftAction, getIdeaDraftDetailAction, type IdeaDraftDetail } from '@/actions/idea-drafts'
 import Link from 'next/link'
+import { PageSurface, StateSurface } from '@/components/layout'
 
 export default function NewIdeaPage() {
   const router = useRouter()
@@ -32,24 +33,21 @@ export default function NewIdeaPage() {
   }, [draftIdParam])
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-6">
+    <PageSurface
+      title="Submit a New Idea"
+      description="Share your innovation idea with the team."
+      actions={
         <Link
           href="/ideas"
-          className="text-sm text-[--color-text-muted] hover:text-[--color-primary]"
+          className="inline-flex items-center rounded-md border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-shell-text)] transition-colors hover:bg-[var(--color-shell-surface-muted)]"
         >
           ← Back to ideas
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-[--color-text]">Submit a New Idea</h1>
-        <p className="mt-1 text-sm text-[--color-text-muted]">
-          Share your innovation idea with the team.
-        </p>
-      </div>
+      }
+    >
 
       {draftLoadError && (
-        <div role="alert" className="mb-4 rounded-md bg-yellow-50 p-3 text-sm text-yellow-800">
-          {draftLoadError}
-        </div>
+        <StateSurface title="Could not load draft" description={draftLoadError} />
       )}
 
       <IdeaForm
@@ -77,6 +75,6 @@ export default function NewIdeaPage() {
           window.history.replaceState(null, '', url.toString())
         }}
       />
-    </div>
+    </PageSurface>
   )
 }

@@ -328,29 +328,36 @@ export default function IdeaForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      noValidate
+      className="space-y-6 rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-6 shadow-sm sm:p-7"
+    >
       {/* Server error */}
       {serverError && (
-        <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <div role="alert" className="rounded-xl border border-[var(--color-danger)] bg-[var(--color-shell-surface-muted)] px-3 py-2.5 text-sm text-[var(--color-danger)]">
           {serverError}
         </div>
       )}
 
       {/* T020: Draft feedback */}
       {draftError && (
-        <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <div role="alert" className="rounded-xl border border-[var(--color-danger)] bg-[var(--color-shell-surface-muted)] px-3 py-2.5 text-sm text-[var(--color-danger)]">
           {draftError}
         </div>
       )}
       {draftSavedMessage && (
-        <p aria-live="polite" className="text-sm text-green-700">
+        <p
+          aria-live="polite"
+          className="rounded-xl border border-[var(--color-success)] bg-[var(--color-shell-surface-muted)] px-3 py-2.5 text-sm text-[var(--color-success)]"
+        >
           {draftSavedMessage}
         </p>
       )}
 
       {/* Title */}
-      <div className="space-y-1">
-        <label htmlFor="title" className="block text-sm font-medium text-[--color-text]">
+      <div className="space-y-2">
+        <label htmlFor="title" className="block text-sm font-medium text-[var(--color-shell-text)]">
           Title <span aria-hidden="true">*</span>
         </label>
         <input
@@ -359,19 +366,19 @@ export default function IdeaForm({
           autoComplete="off"
           aria-describedby={errors.title ? 'title-error' : undefined}
           aria-invalid={!!errors.title}
-          className="w-full rounded-md border border-[--color-border] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
+          className="w-full rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] px-3 py-2.5 text-sm text-[var(--color-shell-text)] shadow-sm transition-colors placeholder:text-[var(--color-shell-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-shell-focus)]"
           {...register('title')}
         />
         {errors.title && (
-          <p id="title-error" role="alert" className="text-xs text-red-600">
+          <p id="title-error" role="alert" className="text-xs text-[var(--color-danger)]">
             {errors.title.message}
           </p>
         )}
       </div>
 
       {/* Description */}
-      <div className="space-y-1">
-        <label htmlFor="description" className="block text-sm font-medium text-[--color-text]">
+      <div className="space-y-2">
+        <label htmlFor="description" className="block text-sm font-medium text-[var(--color-shell-text)]">
           Description <span aria-hidden="true">*</span>
         </label>
         <textarea
@@ -379,26 +386,26 @@ export default function IdeaForm({
           rows={5}
           aria-describedby={errors.description ? 'description-error' : undefined}
           aria-invalid={!!errors.description}
-          className="w-full rounded-md border border-[--color-border] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
+          className="w-full rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] px-3 py-2.5 text-sm text-[var(--color-shell-text)] shadow-sm transition-colors placeholder:text-[var(--color-shell-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-shell-focus)]"
           {...register('description')}
         />
         {errors.description && (
-          <p id="description-error" role="alert" className="text-xs text-red-600">
+          <p id="description-error" role="alert" className="text-xs text-[var(--color-danger)]">
             {errors.description.message}
           </p>
         )}
       </div>
 
       {/* Category */}
-      <div className="space-y-1">
-        <label htmlFor="category" className="block text-sm font-medium text-[--color-text]">
+      <div className="space-y-2">
+        <label htmlFor="category" className="block text-sm font-medium text-[var(--color-shell-text)]">
           Category <span aria-hidden="true">*</span>
         </label>
         <select
           id="category"
           aria-describedby={errors.category ? 'category-error' : undefined}
           aria-invalid={!!errors.category}
-          className="w-full rounded-md border border-[--color-border] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
+          className="w-full rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] px-3 py-2.5 text-sm text-[var(--color-shell-text)] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-shell-focus)]"
           {...register('category')}
         >
           <option value="">{'Select a category\u2026'}</option>
@@ -409,7 +416,7 @@ export default function IdeaForm({
           ))}
         </select>
         {errors.category && (
-          <p id="category-error" role="alert" className="text-xs text-red-600">
+            <p id="category-error" role="alert" className="text-xs text-[var(--color-danger)]">
             {errors.category.message}
           </p>
         )}
@@ -417,13 +424,13 @@ export default function IdeaForm({
 
       {/* Dynamic category fields */}
       {dynamicRulesError && (
-        <div role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <div role="alert" className="rounded-xl border border-[var(--color-danger)] bg-[var(--color-shell-surface-muted)] px-3 py-2.5 text-sm text-[var(--color-danger)]">
           {dynamicRulesError}
         </div>
       )}
       {dynamicRules.length > 0 && (
-        <fieldset className="space-y-3 rounded-md border border-[--color-border] p-3" aria-live="polite">
-          <legend className="px-1 text-sm font-medium text-[--color-text]">Category details</legend>
+        <fieldset className="space-y-3 rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] p-4" aria-live="polite">
+          <legend className="px-1 text-sm font-medium text-[var(--color-shell-text)]">Category details</legend>
           {dynamicRules.map((rule) => {
             const fieldId = `dynamic_${rule.fieldKey}`
             const helpId = `${fieldId}-help`
@@ -436,8 +443,8 @@ export default function IdeaForm({
             ].filter(Boolean).join(' ') || undefined
 
             return (
-              <div key={rule.fieldKey} className="space-y-1">
-                <label htmlFor={fieldId} className="block text-sm font-medium text-[--color-text]">
+              <div key={rule.fieldKey} className="space-y-2">
+                <label htmlFor={fieldId} className="block text-sm font-medium text-[var(--color-shell-text)]">
                   {rule.label} {rule.required ? <span aria-hidden="true">*</span> : null}
                 </label>
 
@@ -452,7 +459,7 @@ export default function IdeaForm({
                       const next = event.target.value
                       setDynamicValues((prev) => ({ ...prev, [rule.fieldKey]: next }))
                     }}
-                    className="w-full rounded-md border border-[--color-border] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
+                    className="w-full rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] px-3 py-2.5 text-sm text-[var(--color-shell-text)] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-shell-focus)]"
                   />
                 ) : (
                   <input
@@ -467,15 +474,15 @@ export default function IdeaForm({
                       const next = event.target.value
                       setDynamicValues((prev) => ({ ...prev, [rule.fieldKey]: next }))
                     }}
-                    className="w-full rounded-md border border-[--color-border] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[--color-primary]"
+                    className="w-full rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] px-3 py-2.5 text-sm text-[var(--color-shell-text)] shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-shell-focus)]"
                   />
                 )}
 
                 {rule.helpText && (
-                  <p id={helpId} className="text-xs text-[--color-text-muted]">{rule.helpText}</p>
+                  <p id={helpId} className="text-xs text-[var(--color-shell-text-muted)]">{rule.helpText}</p>
                 )}
                 {isError && (
-                  <p id={errorId} role="alert" className="text-xs text-red-600">
+                  <p id={errorId} role="alert" className="text-xs text-[var(--color-danger)]">
                     {dynamicErrors[rule.fieldKey]}
                   </p>
                 )}
@@ -487,10 +494,10 @@ export default function IdeaForm({
 
       {/* File attachment */}
       {/* File attachments */}
-      <div className="space-y-1">
-        <label htmlFor="attachments" className="block text-sm font-medium text-[--color-text]">
+      <div className="space-y-2">
+        <label htmlFor="attachments" className="block text-sm font-medium text-[var(--color-shell-text)]">
           Attachments{' '}
-          <span className="text-xs font-normal text-[--color-text-muted]">
+          <span className="text-xs font-normal text-[var(--color-shell-text-muted)]">
             (optional — up to 5 files, 10 MB each, 25 MB total)
           </span>
         </label>
@@ -519,44 +526,44 @@ export default function IdeaForm({
             ])
             e.target.value = ''
           }}
-          className="block w-full text-sm text-[--color-text-muted] file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:cursor-pointer"
+          className="block w-full rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-3 text-sm text-[var(--color-shell-text-muted)] file:mr-3 file:rounded-md file:border-0 file:bg-[var(--color-shell-primary)] file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:cursor-pointer"
         />
-        <p id="attachment-hint" className="text-xs text-[--color-text-muted]">
+        <p id="attachment-hint" className="text-xs text-[var(--color-shell-text-muted)]">
           Supported: PDF, DOC, DOCX, PNG, JPG, GIF, MP3, WAV, WEBM, MP4.
         </p>
         {attachmentError && (
-          <p role="alert" className="text-xs text-red-600">{attachmentError}</p>
+          <p role="alert" className="text-xs text-[var(--color-danger)]">{attachmentError}</p>
         )}
         {existingAttachments.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-[--color-text-muted]">Existing attachments</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-shell-text-muted)]">Existing attachments</p>
             {existingAttachments
               .filter((a) => !removedAttachmentIds.includes(a.id))
               .map((a) => (
-                <div key={a.id} className="rounded-md border border-[--color-border] p-3 flex items-center justify-between gap-3">
+                <div key={a.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-3">
                   <div>
-                    <p className="text-sm font-medium text-[--color-text]">{a.originalName}</p>
-                    <p className="text-xs text-[--color-text-muted]">{a.mimeType} · {formatBytes(a.sizeBytes)}</p>
+                    <p className="text-sm font-medium text-[var(--color-shell-text)]">{a.originalName}</p>
+                    <p className="text-xs text-[var(--color-shell-text-muted)]">{a.mimeType} · {formatBytes(a.sizeBytes)}</p>
                   </div>
-                  <button type="button" onClick={() => setRemovedAttachmentIds((c) => [...c, a.id])} className="text-xs text-red-600 hover:underline">Remove</button>
+                  <button type="button" onClick={() => setRemovedAttachmentIds((c) => [...c, a.id])} className="text-xs text-[var(--color-danger)] hover:underline">Remove</button>
                 </div>
               ))}
           </div>
         )}
         {pendingAttachments.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-[--color-text-muted]">Selected attachments</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-shell-text-muted)]">Selected attachments</p>
             {pendingAttachments.map((a) => (
-              <div key={a.id} className="rounded-md border border-[--color-border] p-3">
+              <div key={a.id} className="rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-2">
                     <div>
-                      <p className="text-sm font-medium text-[--color-text]">{a.file.name}</p>
-                      <p className="text-xs text-[--color-text-muted]">{a.file.type || 'application/octet-stream'} · {formatBytes(a.file.size)}</p>
+                      <p className="text-sm font-medium text-[var(--color-shell-text)]">{a.file.name}</p>
+                      <p className="text-xs text-[var(--color-shell-text-muted)]">{a.file.type || 'application/octet-stream'} · {formatBytes(a.file.size)}</p>
                     </div>
                     {renderAttachmentPreview(a.file.name, a.file.type, a.previewUrl)}
                   </div>
-                  <button type="button" onClick={() => setPendingAttachments((c) => c.filter((item) => item.id !== a.id))} className="text-xs text-red-600 hover:underline">Remove</button>
+                  <button type="button" onClick={() => setPendingAttachments((c) => c.filter((item) => item.id !== a.id))} className="text-xs text-[var(--color-danger)] hover:underline">Remove</button>
                 </div>
               </div>
             ))}
@@ -568,7 +575,7 @@ export default function IdeaForm({
         <button
           type="submit"
           disabled={isPending || isDraftPending}
-          className="rounded-md bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-[var(--color-shell-primary)] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--color-primary-dark)] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPending ? 'Saving\u2026' : submitLabel}
         </button>
@@ -580,7 +587,7 @@ export default function IdeaForm({
             disabled={isPending || isDraftPending}
             onClick={onSaveDraft}
             aria-label="Save draft"
-            className="rounded-md border border-[--color-border] px-5 py-2 text-sm font-medium text-[--color-text] hover:bg-[--color-surface] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] px-5 py-2 text-sm font-medium text-[var(--color-shell-text)] transition-colors hover:bg-[var(--color-shell-surface-muted)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isDraftPending ? 'Saving draft\u2026' : 'Save Draft'}
           </button>
