@@ -79,14 +79,14 @@ Generally, SDD approach worked very good. Especially after few phases it felt ve
 
 | Phase | Actual |
 |-------|--------|
-| Setup & SpecKit | 20 mins |
-| Phase 1: Core Portal | 2 hours |
-| Phase 2: Smart Submission Forms | 30 mins |
+| Setup & SpecKit | 30 mins |
+| Phase 1: Core Portal | 3 hours |
+| Phase 2: Smart Submission Forms | 40 mins |
 | Phase 3: Multi-Media Support | 40 mins |
 | Phase 4: Draft Management | 50 mins |
 | Phase 5: Multi-Stage Review | 1.30 hours |
-| Phase 6: Blind Review | 10 mins |
-| Phase 7: Scoring System | 20 mins |
+| Phase 6: Blind Review | 20 mins |
+| Phase 7: Scoring System | 30 mins |
 | Documentation | 30 mins |
 
 ## Reflection
