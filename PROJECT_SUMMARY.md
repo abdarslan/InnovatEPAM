@@ -57,7 +57,7 @@ I've built an inovation portal that enables employees to submit ideas and allows
 ### Challenge 1: Not having many things to fill initial documentations like constitution.
 I went through bootcamp modules and also actively discussed things and did brainstorming with gemini.
 
-### Challenge 2: To create a new feature but decided to update a current spec i forgot that it switched to same feature branched that many commits behind. And afterwards there were tons of merge conflicts etc.
+### Challenge 2: To create a new feature decided to update a current spec i forgot that it switched to same feature branched that many commits behind. And afterwards there were tons of merge conflicts etc.
 I carefully handled that specific situation via resolving them but afterwards i decided to delete the branches after merge to main.
 
 ## AI Collaboration
