@@ -57,7 +57,7 @@ I've built an inovation portal that enables employees to submit ideas and allows
 ### Challenge 1: Not having many things to fill initial documentations like constitution.
 I went through bootcamp modules and also actively discussed things and did brainstorming with gemini.
 
-### Challenge 2: To create a new feature but decided to update a current spec i forgot that it switched to same feature branched that many commits behind. And afterwards there were tons of merge conflicts etc.
+### Challenge 2: To create a new feature decided to update a current spec i forgot that it switched to same feature branched that many commits behind. And afterwards there were tons of merge conflicts etc.
 I carefully handled that specific situation via resolving them but afterwards i decided to delete the branches after merge to main.
 
 ## AI Collaboration
@@ -79,14 +79,14 @@ Generally, SDD approach worked very good. Especially after few phases it felt ve
 
 | Phase | Actual |
 |-------|--------|
-| Setup & SpecKit | 20 mins |
-| Phase 1: Core Portal | 2 hours |
-| Phase 2: Smart Submission Forms | 30 mins |
+| Setup & SpecKit | 30 mins |
+| Phase 1: Core Portal | 3 hours |
+| Phase 2: Smart Submission Forms | 40 mins |
 | Phase 3: Multi-Media Support | 40 mins |
 | Phase 4: Draft Management | 50 mins |
 | Phase 5: Multi-Stage Review | 1.30 hours |
-| Phase 6: Blind Review | 10 mins |
-| Phase 7: Scoring System | 20 mins |
+| Phase 6: Blind Review | 20 mins |
+| Phase 7: Scoring System | 30 mins |
 | Documentation | 30 mins |
 
 ## Reflection

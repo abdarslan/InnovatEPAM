@@ -271,3 +271,195 @@ T052 app/(protected)/admin/users/page.tsx  (deactivation confirmation alert)
 2. One engineer owns UI/forms and route pages
 3. One engineer owns integration and E2E tests
 4. Merge after each story's independent test criteria pass
+
+---
+
+## Phase 8: Coverage Improvement (Test Threshold Compliance)
+
+**Current Coverage**: 74.82% (threshold: 80%)  
+**Target**: 80%+ by improving `actions/auth.ts` (1.36%) and `lib/auth/session.ts` (9.09%)
+
+**Issue**: Existing integration tests reimplement logic inline instead of calling actual Server Actions. Server Actions and session helpers have no direct test coverage.
+
+### Unit Tests — Auth Helpers
+
+- [ ] T101 [P] Add unit tests for `lib/auth/session.ts` in `tests/unit/auth/session.test.ts`:
+  - `getSession()` returns session when valid cookie exists
+  - `getSession()` returns null when no session cookie
+  - `requireAuth()` throws when no session
+  - `requireAuth()` throws when session ttl exceeded
+  - `requireRole('admin')` throws when user is submitter
+  - `requireRole('submitter')` throws when user is admin
+  - File: `tests/unit/auth/session.test.ts`
+
+- [ ] T102 [P] Add unit tests for password helpers in `tests/unit/auth/password.test.ts`:
+  - `hashPassword()` produces different hashes for same password (bcrypt salt randomness)
+  - `verifyPassword()` returns true for correct password
+  - `verifyPassword()` returns false for incorrect password
+  - Work factor is set to 12
+  - File: `tests/unit/auth/password.test.ts`
+
+- [ ] T103 [P] Add unit tests for validation schemas in `tests/unit/auth/validation.test.ts`:
+  - `registerSchema` validates EPAM email + compliant password
+  - `registerSchema` rejects non-EPAM domains with specific error
+  - `registerSchema` rejects short passwords (< 8 chars)
+  - `registerSchema` rejects passwords missing uppercase letter
+  - `registerSchema` rejects passwords missing number
+  - `loginSchema` accepts valid email + password
+  - `loginSchema` rejects empty/missing fields
+  - File: `tests/unit/auth/validation.test.ts`
+
+### Server Action Integration Tests — Direct Calls
+
+- [ ] T104 Refactor `tests/integration/auth/register.test.ts` to call `registerAction` directly (instead of inline logic):
+  - Success: `registerAction({ email, password, displayName })` creates user with submitter role
+  - Success: returns `{ ok: true, data: { userId } }`
+  - Success: user can log in with created credentials
+  - Error: duplicate email returns `{ ok: false, error: '...' }`
+  - Error: non-EPAM domain returns domain validation error
+  - Error: password policy violation returns specific error (all 3 policy rules)
+  - Error: missing required fields returns validation errors
+  - File: `tests/integration/auth/register.test.ts`
+
+- [ ] T105 Refactor `tests/integration/auth/login.test.ts` to call `loginAction` directly (instead of inline logic):
+  - Success: `loginAction({ email, password })` returns `{ ok: true, data: { role } }`
+  - Success: session cookie is set in response headers
+  - Success: `failedAttempts` reset to 0 on successful login
+  - Success: `lockedUntil` set to null on successful login
+  - Error: wrong password increments `failedAttempts`
+  - Error: after 5 failures, `lockedUntil` is set (15-minute lockout)
+  - Error: locked account returns lockout message with `formatDistanceToNow` formatted time
+  - Error: inactive account returns deactivation message
+  - Error: non-existent email returns generic error (no user enumeration)
+  - Lockout expiry: account accepts login after 15 minutes elapsed
+  - File: `tests/integration/auth/login.test.ts`
+
+- [ ] T106 Create new integration test file for `logoutAction` in `tests/integration/auth/logout.test.ts`:
+  - Success: `logoutAction()` destroys iron-session cookie
+  - Success: returns `{ ok: true }`
+  - Success: subsequent authenticated requests fail (no session)
+  - File: `tests/integration/auth/logout.test.ts`
+
+- [ ] T107 Refactor `tests/integration/auth/deactivate.test.ts` to call `deactivateUserAction` directly:
+  - Success: admin calls `deactivateUserAction(userId)`, user status → inactive
+  - Success: returns `{ ok: true, data: { deactivatedEmail } }`
+  - Error: submitter cannot call action (requireRole enforces)
+  - Error: deactivating non-existent user returns error
+  - Integration: deactivated user cannot log in (blocked in loginAction)
+  - File: `tests/integration/auth/deactivate.test.ts`
+
+### Edge Cases & Branch Coverage
+
+- [ ] T108 Create session expiry scenario tests in `tests/integration/auth/session-expiry.test.ts`:
+  - Authenticated request succeeds with valid session
+  - Authenticated request fails when session ttl exceeded
+  - Session sliding window: activity resets expiry timer
+  - Expired session triggers redirect with `?reason=session_expired`
+  - File: `tests/integration/auth/session-expiry.test.ts`
+
+- [ ] T109 Create error path coverage tests in `tests/integration/auth/error-handling.test.ts`:
+  - Invalid input data (null, undefined, objects instead of strings)
+  - Database constraint violations handled gracefully
+  - Concurrent login attempts from same user
+  - File: `tests/integration/auth/error-handling.test.ts`
+
+### Component & E2E Enhancements
+
+- [ ] T110 [P] Extend `components/auth/LoginForm.test.tsx`:
+  - Submit button is disabled while request is pending
+  - Error message from server is displayed
+  - Form persists values on error
+  - Keyboard submission (Enter) works
+  - File: `components/auth/LoginForm.test.tsx`
+
+- [ ] T111 [P] Extend `components/auth/RegisterForm.test.tsx`:
+  - Shows all 3 password policy error messages (length, uppercase, number)
+  - Shows email domain validation error
+  - Accessibility: `aria-describedby` links error text to input fields
+  - Form clears on successful submission
+  - File: `components/auth/RegisterForm.test.tsx`
+
+- [ ] T112 [P] Create test for `components/auth/LogoutButton.tsx` in `components/auth/LogoutButton.test.tsx`:
+  - Renders button with accessible label
+  - Calls `logoutAction` on click
+  - Shows loading state during logout
+  - Redirects to `/login` after logout succeeds
+  - File: `components/auth/LogoutButton.test.tsx`
+
+- [ ] T113 Add E2E test for lockout timeout in `tests/e2e/lockout-timeout.spec.ts`:
+  - Trigger 5 failed login attempts
+  - Verify account locked message with formatted timeout
+  - (Mock or artificially wait for time) Verify account unlocks after 15 minutes
+  - Verify successful login works after timeout
+  - File: `tests/e2e/lockout-timeout.spec.ts`
+
+- [ ] T114 Add E2E test for session expiry message in `tests/e2e/session-expiry.spec.ts`:
+  - User logs in successfully
+  - Session is valid and user can navigate
+  - (Simulate expiry or manipulate time) Redirect to `/login?reason=session_expired`
+  - Login page displays session-expired message banner
+  - File: `tests/e2e/session-expiry.spec.ts`
+
+### Verification & Threshold
+
+- [ ] T115 Update coverage threshold in `vitest.config.ts`:
+  - Set `lines: 80` for all files
+  - Ensure `lib/auth/` and `actions/auth.ts` reach 100% lines + branches
+  - Run `npm run test:coverage` and verify pass
+  - File: `vitest.config.ts`
+
+- [ ] T116 [P] Verify all quality gates pass:
+  - `npm run type-check` ✅
+  - `npm run lint` ✅
+  - `npm run test` ✅ (all 222+ tests pass)
+  - `npm run test:coverage` ✅ (coverage ≥ 80%)
+  - Document results in `specs/001-user-auth-management/quickstart.md`
+  - File: `specs/001-user-auth-management/quickstart.md`
+
+---
+
+## Coverage Target Breakdown
+
+| File | Current | Target | Tasks |
+|---|---|---|---|
+| `actions/auth.ts` | 1.36% | 100% | T104, T105, T106, T107, T109 |
+| `lib/auth/session.ts` | 9.09% | 100% | T101, T108 |
+| `lib/auth/password.ts` | 100% | 100% | T102 (maintain) |
+| `lib/auth/validation.ts` | 100% | 100% | T103 (maintain) |
+| `components/auth/*` | ~80% | 90%+ | T110, T111, T112 |
+| **Overall** | **74.82%** | **80%+** | All tasks |
+
+---
+
+## Execution Order
+
+**Priority 1 — Critical (Must have for 80%+):**
+1. T104 — Refactor register integration test to call actual `registerAction`
+2. T105 — Refactor login integration test to call actual `loginAction`
+3. T106 — Create logout action test (new file)
+4. T107 — Refactor deactivate test to call `deactivateUserAction`
+5. T101 — Session helper unit tests
+
+**Priority 2 — High (Branch coverage):**
+6. T102 — Password helper unit tests
+7. T103 — Validation schema unit tests
+8. T108 — Session expiry edge cases
+9. T109 — Error path coverage
+
+**Priority 3 — Medium (Component + E2E):**
+10. T110–T112 — Component test extensions
+11. T113–T114 — E2E enhancements
+12. T115–T116 — Verification and threshold
+
+---
+
+## Success Criteria
+
+- ✅ `actions/auth.ts` coverage: 100% (from 1.36%)
+- ✅ `lib/auth/session.ts` coverage: 100% (from 9.09%)
+- ✅ `lib/auth/password.ts` coverage: 100% (maintained)
+- ✅ `lib/auth/validation.ts` coverage: 100% (maintained)
+- ✅ Overall coverage: ≥ 80% (from 74.82%)
+- ✅ All tests pass (222+ tests)
+- ✅ No flaky tests (consistent across 3 runs)
+- ✅ CI gates pass: type-check, lint, test, test:coverage
