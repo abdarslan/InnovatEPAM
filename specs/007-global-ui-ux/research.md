@@ -1,45 +1,30 @@
-# Research Findings: Global UI/UX Framework
+# Research: Global App UI System
 
-## Decision 1: Responsive Navigation Pattern
+## Decision 1: Extend the existing Tailwind v4 theme across all route groups
+- **Decision**: Keep the current Tailwind v4 `@theme` token approach as the single source of truth for colors, typography, spacing, elevation, and focus styling across public, auth, and protected routes.
+- **Rationale**: The constitution requires Tailwind-only styling, and the repo already uses `@theme` tokens. Reusing the current system avoids adding another styling layer.
+- **Alternatives considered**: A separate design-system package, CSS modules, or custom CSS. Rejected because they would split the visual system and add maintenance overhead.
 
-- Decision: Desktop uses fixed left sidebar; tablet/mobile use off-canvas sidebar opened from top-bar toggle.
-- Rationale: Preserves information density on desktop while maintaining usable content area on small screens.
-- Alternatives considered:
-  - Always-visible sidebar on all breakpoints (rejected: poor mobile usability)
-  - Bottom nav replacement on mobile (rejected: deviates from left-nav mental model for this product)
+## Decision 2: Use the existing App Router route groups as the composition boundary
+- **Decision**: Apply the visual system through the current `app/layout.tsx`, `app/(auth)/layout.tsx`, and `app/(protected)/layout.tsx` structure instead of introducing a second shell architecture.
+- **Rationale**: The application already centralizes layout concerns in the root layout and route-group layouts. That makes it the lowest-risk place to standardize the whole app.
+- **Alternatives considered**: A new app-wide provider wrapper or a separate layout package. Rejected because they would duplicate responsibilities already handled by route groups.
 
-## Decision 2: Authorization Visibility in Sidebar
+## Decision 3: Standardize shared UI patterns and state surfaces
+- **Decision**: Treat cards, forms, lists, tables, dialogs, alerts, loading states, empty states, and error states as part of the same visual system, not as route-specific exceptions.
+- **Rationale**: The spec now covers the whole application, so state surfaces must look and behave consistently everywhere.
+- **Alternatives considered**: Per-route bespoke states or keeping auth/public screens visually distinct. Rejected because they conflict with the clarified scope.
 
-- Decision: Hide unauthorized navigation destinations entirely.
-- Rationale: Prevents permission leakage and simplifies user comprehension.
-- Alternatives considered:
-  - Disabled locked items (rejected: reveals inaccessible capabilities)
-  - Show then deny on click (rejected: creates avoidable dead-end interactions)
-
-## Decision 3: Off-Canvas Keyboard Accessibility Behavior
-
-- Decision: On open move focus to first nav item, trap focus while open, close on Escape, restore focus to toggle on close.
-- Rationale: Aligns with accessible dialog/drawer interaction patterns and yields deterministic keyboard flow.
-- Alternatives considered:
-  - No focus trap (rejected: focus can escape hidden context)
-  - Focus drawer container only (rejected: slower keyboard navigation, less discoverable)
-
-## Decision 4: Token Enforcement Scope
-
-- Decision: Enforce exact core Aura Innovation tokens for semantic colors and headline/body typography; allow minor variation for non-core decorative states only.
-- Rationale: Ensures brand consistency without over-constraining harmless decorative nuance.
-- Alternatives considered:
-  - Full strict tokens for every state (rejected: unnecessary rigidity)
-  - Guideline-only tokens (rejected: weak QA enforceability)
-
-## Decision 5: Top-Bar Placeholder Contract
-
-- Decision: Reserve stable top-bar footprint with fixed alignment and minimum width across breakpoints.
-- Rationale: Enables future search drop-in without layout shift or refactor.
-- Alternatives considered:
-  - No footprint contract (rejected: likely future shift and rework)
-  - Disabled search input now (rejected: introduces misleading non-functional UI)
+## Decision 4: Avoid new dependencies
+- **Decision**: Implement the feature with existing stack pieces only: Next.js App Router, React 18+, Tailwind CSS v4, shadcn/ui, and the current auth/session stack.
+- **Rationale**: The constitution discourages new dependencies without justification, and the current stack already covers the required behavior.
+- **Alternatives considered**: Animation libraries, CSS-in-JS, or an external design system package. Rejected because they are unnecessary for the scope.
 
 ## Summary
 
 All technical clarifications are resolved. No unresolved NEEDS CLARIFICATION items remain.
+
+## Implementation Note
+
+- The current implementation phase is intentionally component-focused.
+- Integration and E2E validation remain deferred until a later phase is explicitly requested.

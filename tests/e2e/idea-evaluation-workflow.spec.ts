@@ -51,8 +51,17 @@ async function applyDecisionOnRow(page: Page, ideaTitle: string, decisionButton:
   const row = page.locator('li', { hasText: ideaTitle }).first()
   await expect(row).toBeVisible()
   await row.getByRole('button', { name: decisionButton }).click()
-  await row.getByLabel(/decision comment/i).fill(comment)
-  await row.getByRole('button', { name: /confirm decision/i }).click()
+
+  const decisionForm = row.locator('form').first()
+  await expect(decisionForm).toBeVisible()
+  await decisionForm.getByLabel(/decision comment/i).fill(comment)
+
+  const ratingOptions = decisionForm.getByRole('radio')
+  if ((await ratingOptions.count()) > 0) {
+    await decisionForm.getByRole('radio', { name: /4 of 5/i }).click()
+  }
+
+  await decisionForm.getByRole('button', { name: /confirm decision/i }).click()
 }
 
 test.describe('idea evaluation workflow', () => {

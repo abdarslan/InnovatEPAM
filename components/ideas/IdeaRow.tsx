@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { getIdeaDetailAction, getIdeaTimelineAction } from '@/actions/ideas'
 import type { IdeaAttachmentMeta, IdeaListItem, IdeaDetail, IdeaTimelineEntry } from '@/actions/ideas'
 import type { IdeaCategory } from '@/lib/db/schema'
 import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/ideas/StatusBadge'
 import { IdeaTimeline } from '@/components/ideas/IdeaTimeline'
 
@@ -97,18 +98,18 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
   const submitterDisplayName =
     currentUserRole === 'admin' && idea.isSubmitterAnonymous ? 'Anonymous' : idea.submitterName
   const completedScoreSummary = buildScoreSummary(idea)
+  // Fetch detail/timeline when the collapsible is opened.
+  // Let Radix's CollapsibleTrigger handle toggling so we don't mix handlers.
+  useEffect(() => {
+    if (!isOpen || detail || timeline) return
 
-  async function handleOpenChange(open: boolean) {
-    setIsOpen(open)
-    if (open && (!detail || !timeline)) {
-      setIsLoading(true)
-      setLoadError(null)
+    setIsLoading(true)
+    setLoadError(null)
 
-      const [detailResult, timelineResult] = await Promise.all([
-        getIdeaDetailAction(idea.id),
-        getIdeaTimelineAction({ ideaId: idea.id }),
-      ])
-
+    void Promise.all([
+      getIdeaDetailAction(idea.id),
+      getIdeaTimelineAction({ ideaId: idea.id }),
+    ]).then(([detailResult, timelineResult]) => {
       setIsLoading(false)
 
       if (detailResult.ok) {
@@ -123,73 +124,69 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
       } else {
         setLoadError(timelineResult.error)
       }
-    }
-  }
+    })
+  }, [isOpen, detail, timeline, idea.id])
 
   return (
-    <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
-      <div className="rounded-lg border border-[--color-border] bg-white">
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="overflow-hidden rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] shadow-sm transition-[box-shadow,border-color] duration-200 hover:shadow-md hover:border-[var(--color-shell-primary)]/30">
         {/* Row header */}
-        <CollapsibleTrigger
-          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
-          aria-expanded={isOpen}
-        >
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="truncate font-medium text-[--color-text]">{idea.title}</span>
-            <div className="flex items-center gap-2 text-xs text-[--color-text-muted]">
-              <span className="rounded bg-surface px-1.5 py-0.5 border border-[--color-border]">
-                {CATEGORY_LABELS[idea.category]}
+        <CollapsibleTrigger className="flex w-full cursor-pointer items-start justify-between gap-4 p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-shell-focus)]">
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex items-start gap-2">
+              <span className="truncate text-base font-semibold tracking-tight text-[var(--color-shell-text)] sm:text-lg">
+                {idea.title}
               </span>
-              <span>{submitterDisplayName}</span>
-              <span>{'\u00B7'}</span>
-              <span>{formatDate(idea.createdAt)}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-shell-text-muted)]">
+              <Badge variant="outline" className="px-2.5 py-1 text-[var(--color-shell-text)]">
+                {CATEGORY_LABELS[idea.category]}
+              </Badge>
+              <span>{submitterDisplayName} on {formatDate(idea.createdAt)}</span>
               {idea.hasAttachment && (
-                <>
-                  <span>{'\u00B7'}</span>
-                  <span className="text-[--color-info]">{attachmentLabel(idea.attachmentCount)}</span>
-                </>
+                <span className="font-medium text-[var(--color-shell-primary)]">{attachmentLabel(idea.attachmentCount)}</span>
               )}
             </div>
           </div>
-          <div className="ml-3 flex items-center gap-2 shrink-0">
+          <div className="flex shrink-0 items-center gap-2 pt-0.5">
             <StatusBadge status={idea.status} scoreReady={completedScoreSummary !== null} />
-            <span className="text-[--color-text-muted]" aria-hidden="true">
+            <span className="text-[var(--color-shell-text-muted)]" aria-hidden="true">
               {isOpen ? '\u25BE' : '\u25B8'}
             </span>
           </div>
         </CollapsibleTrigger>
 
         {/* Expanded content */}
-        <CollapsibleContent>
-          <div className="border-t border-[--color-border] px-4 py-4 space-y-4">
+        <CollapsibleContent className="overflow-hidden data-[state=open]:animate-[fadeIn_150ms_ease-out] data-[state=closed]:animate-[fadeOut_120ms_ease-in] data-[state=closed]:hidden">
+          <div className="border-t border-[var(--color-shell-border)] px-5 pb-5 pt-4 space-y-4">
             {isLoading && (
-              <p className="text-sm text-[--color-text-muted]" aria-live="polite">
+              <p className="text-sm text-[var(--color-shell-text-muted)]" aria-live="polite">
                 Loading...
               </p>
             )}
             {loadError && (
-              <p className="text-sm text-red-600" role="alert">
+              <p className="text-sm text-[var(--color-danger)]" role="alert">
                 {loadError}
               </p>
             )}
             {detail && (
               <>
                 {completedScoreSummary && (
-                  <p className="rounded border border-border bg-muted/40 px-2 py-1 text-xs text-foreground">
+                  <p className="rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] px-3 py-2 text-xs text-[var(--color-shell-text)]">
                     Scores: {completedScoreSummary}
                   </p>
                 )}
 
-                <p className="text-sm text-[--color-text] whitespace-pre-wrap">{detail.description}</p>
+                <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--color-shell-text)]">{detail.description}</p>
 
                 {detail.dynamicFields.length > 0 && (
-                  <div className="rounded border border-border bg-muted/50 p-3 text-sm space-y-1">
-                    <p className="font-medium">Category details</p>
-                    <dl className="space-y-1">
+                  <div className="space-y-2 rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] p-4 text-sm">
+                    <p className="font-semibold text-[var(--color-shell-text)]">Category details</p>
+                    <dl className="space-y-2">
                       {detail.dynamicFields.map((field) => (
-                        <div key={field.fieldKey} className="flex flex-wrap gap-1">
-                          <dt className="font-medium">{formatDynamicFieldLabel(field.fieldKey)}:</dt>
-                          <dd className="text-muted-foreground">{field.value}</dd>
+                        <div key={field.fieldKey} className="flex flex-wrap gap-2 rounded-lg bg-[var(--color-shell-surface)] px-3 py-2">
+                          <dt className="font-medium text-[var(--color-shell-text)]">{formatDynamicFieldLabel(field.fieldKey)}:</dt>
+                          <dd className="text-[var(--color-shell-text-muted)]">{field.value}</dd>
                         </div>
                       ))}
                     </dl>
@@ -197,15 +194,15 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                 )}
 
                 {detail.evaluation !== null && currentUserId === idea.submitterId && (
-                  <div className="rounded border border-border bg-muted/50 p-3 text-sm space-y-1">
-                    <p className="font-medium">
+                  <div className="space-y-1 rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] p-4 text-sm">
+                    <p className="font-semibold text-[var(--color-shell-text)]">
                       Evaluation:{' '}
-                      <span className={detail.evaluation.status === 'accepted' ? 'text-green-700' : 'text-red-700'}>
+                      <span className={detail.evaluation.status === 'accepted' ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}>
                         {detail.evaluation.status === 'accepted' ? 'Accepted' : 'Rejected'}
                       </span>
                     </p>
                     {detail.evaluation.comment && (
-                      <p className="text-muted-foreground">{detail.evaluation.comment}</p>
+                      <p className="text-[var(--color-shell-text-muted)]">{detail.evaluation.comment}</p>
                     )}
                   </div>
                 )}
@@ -215,18 +212,18 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                     {detail.attachments && detail.attachments.length > 0 ? (
                       <div className="space-y-3">
                         {detail.attachments.map((attachment) => (
-                          <div key={attachment.id} className="rounded-md border border-[--color-border] p-3">
+                          <div key={attachment.id} className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-3 shadow-sm">
                             <div className="mb-2 flex items-center justify-between gap-3">
                               <div>
-                                <p className="text-sm font-medium text-[--color-text]">{attachment.originalName}</p>
-                                <p className="text-xs text-[--color-text-muted]">
+                                <p className="text-sm font-medium text-[var(--color-shell-text)]">{attachment.originalName}</p>
+                                <p className="text-xs text-[var(--color-shell-text-muted)]">
                                   {attachment.mimeType} · {formatBytes(attachment.sizeBytes)}
                                 </p>
                               </div>
                               <div className="flex items-center gap-3 text-xs">
                                 <a
                                   href={`/api/ideas/${idea.id}/attachments/${attachment.id}`}
-                                  className="text-[--color-primary] hover:underline"
+                                  className="text-[var(--color-shell-primary)] hover:underline"
                                   target="_blank"
                                   rel="noreferrer"
                                 >
@@ -234,7 +231,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                                 </a>
                                 <a
                                   href={`/api/ideas/${idea.id}/attachments/${attachment.id}?download=1`}
-                                  className="text-[--color-text] hover:underline"
+                                  className="text-[var(--color-shell-text)] hover:underline"
                                 >
                                   Download
                                 </a>
@@ -248,11 +245,11 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                       <a
                         href={`/api/ideas/${idea.id}/attachment`}
                         download={detail.attachmentName}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-[--color-border] px-3 py-1.5 text-xs text-[--color-text] hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-shell-border)] px-3 py-1.5 text-xs text-[var(--color-shell-text)] transition-colors hover:bg-[var(--color-shell-surface-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-shell-focus)]"
                       >
                         ⬇ {detail.attachmentName}
                         {detail.attachmentSize !== null && (
-                          <span className="text-[--color-text-muted]">({formatBytes(detail.attachmentSize)})</span>
+                          <span className="text-[var(--color-shell-text-muted)]">({formatBytes(detail.attachmentSize)})</span>
                         )}
                       </a>
                     )}
@@ -265,7 +262,7 @@ export default function IdeaRow({ idea, currentUserId, currentUserRole, onDelete
                   {isOwner && (
                     <Link
                       href={`/ideas/${idea.id}/edit`}
-                      className="text-xs text-[--color-primary] hover:underline"
+                      className="text-xs text-[var(--color-shell-primary)] hover:underline"
                     >
                       Edit
                     </Link>

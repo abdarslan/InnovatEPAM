@@ -1,9 +1,9 @@
 {
-  "ai": "copilot",
+  "ai": "roo",
   "branch_numbering": "sequential",
-  "context_file": ".github/copilot-instructions.md",
-  "here": false,
-  "integration": "copilot",
+  "context_file": ".roo/rules/specify-rules.md",
+  "here": true,
+  "integration": "roo",
   "script": "ps",
-  "speckit_version": "0.8.10.dev0"
+  "speckit_version": "0.8.11.dev0"
 }

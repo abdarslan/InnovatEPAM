@@ -4,6 +4,7 @@ import { getAdminIdeasAction } from '@/actions/ideas'
 import { AdminIdeaList } from '@/components/ideas/AdminIdeaList'
 import { IDEA_STATUSES } from '@/lib/db/schema'
 import type { IdeaStatus } from '@/actions/ideas'
+import { PageSurface, StateSurface } from '@/components/layout'
 
 type PageProps = {
   searchParams: Promise<{ status?: string }>
@@ -24,13 +25,12 @@ export default async function AdminIdeasPage({ searchParams }: PageProps) {
   const result = await getAdminIdeasAction(statusFilter)
 
   if (!result.ok) {
-    throw new Error(result.error)
+    return <StateSurface title="Could not load ideas" description={result.error} />
   }
 
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Idea Management</h1>
+    <PageSurface title="Idea Management" description="Review, evaluate, and manage submitted ideas.">
       <AdminIdeaList ideas={result.data} currentStatus={statusFilter} />
-    </main>
+    </PageSurface>
   )
 }

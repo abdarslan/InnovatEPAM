@@ -1,7 +1,7 @@
 # InnovatEPAM Portal - Project Summary
 
 ## Overview
-I've built an inovation portal. It allows idea submissions from employees and idea evaluations from admins.
+I've built an inovation portal that enables employees to submit ideas and allows administrators to evaluate and manage them through a multi-stage review process with anonymous evaluation, scoring systems, and draft management.
 
 ## Phases Completed
 

@@ -47,49 +47,51 @@ export function AdminIdeaRow({ idea }: Props) {
   }
 
   const submitterDisplayName = idea.isSubmitterAnonymous ? 'Anonymous' : idea.submitterName
-
+  const createdAtLabel = new Date(idea.createdAt).toLocaleDateString()
   return (
-    <li className="rounded border border-border bg-card p-4 space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-base truncate" title={idea.title}>
+    <li className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-5 space-y-4 shadow-sm transition-[box-shadow,border-color] hover:shadow-md hover:border-[var(--color-shell-primary)]/30">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-3">
+          <h3 className="truncate text-base font-semibold text-[var(--color-shell-text)]" title={idea.title}>
             {idea.title}
           </h3>
-          <p className="text-sm text-muted-foreground">
-            {idea.category.replace('_', ' ')} · by {submitterDisplayName} ·{' '}
-            {new Date(idea.createdAt).toLocaleDateString()}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Stage: {idea.currentStage.replaceAll('_', ' ')} · Outcome: {idea.currentOutcome.replaceAll('_', ' ')}
+          <p className="text-sm text-[var(--color-shell-text-muted)]">
+            {idea.category.replace('_', ' ')} by {submitterDisplayName} on {createdAtLabel}
           </p>
         </div>
         <StatusBadge status={idea.status} />
       </div>
 
-      {idea.reviewerName && (
-        <p className="text-sm text-muted-foreground">
-          Reviewer: <span className="font-medium">{idea.reviewerName}</span>
-          {idea.reviewStartedAt && (
-            <> · started {new Date(idea.reviewStartedAt).toLocaleDateString()}</>
-          )}
-        </p>
-      )}
+      <div className="flex flex-wrap gap-2 text-xs text-[var(--color-shell-text-muted)]">
+        <span className="rounded-full border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] px-2.5 py-1">
+          Stage: {idea.currentStage.replaceAll('_', ' ')}
+        </span>
+        <span className="rounded-full border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] px-2.5 py-1">
+          Outcome: {idea.currentOutcome.replaceAll('_', ' ')}
+        </span>
+        {idea.reviewerName && (
+          <span className="py-1">Reviewer: {idea.reviewerName}</span>
+        )}
+      </div>
 
       {idea.evaluation && (
-        <div className="rounded bg-muted/50 p-3 text-sm space-y-1">
-          <p>
-            <span className="font-medium">Evaluated by:</span> {idea.evaluation.adminName}
+        <div className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)]/80 p-4 text-sm space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-shell-text-muted)]">
+            Latest evaluation
+          </p>
+          <p className="text-[var(--color-shell-text)]">
+            <span className="font-medium">By:</span> {idea.evaluation.adminName}
           </p>
           {idea.evaluation.comment && (
-            <p>
-              <span className="font-medium">Comment:</span> {idea.evaluation.comment}
+            <p className="line-clamp-2 text-[var(--color-shell-text-muted)]">
+              {idea.evaluation.comment}
             </p>
           )}
         </div>
       )}
 
       {(idea.latestDecisionAt || idea.latestDecidedByUserName) && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-[var(--color-shell-text-muted)]">
           Latest decision by {idea.latestDecidedByUserName ?? 'Unknown'}
           {idea.latestDecisionAt ? ` on ${new Date(idea.latestDecisionAt).toLocaleString()}` : ''}
         </p>
@@ -99,35 +101,42 @@ export function AdminIdeaRow({ idea }: Props) {
         <button
           type="button"
           onClick={() => void toggleDetails()}
-          className="text-sm text-primary underline-offset-4 hover:underline"
+          className="inline-flex items-center rounded-full border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] px-3 py-1.5 text-sm font-medium text-[var(--color-shell-text)] underline-offset-4 transition-colors hover:bg-[var(--color-shell-surface-muted)]/80 hover:underline"
         >
           {isDetailOpen ? 'Hide details' : 'View details'}
         </button>
       </div>
 
       {isDetailOpen && (
-        <div className="rounded border border-border bg-muted/40 p-3 text-sm space-y-2">
+        <div className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)]/70 p-4 text-sm space-y-3">
           {isLoadingDetail && (
-            <p className="text-muted-foreground" aria-live="polite">
+            <p className="text-[var(--color-shell-text-muted)]" aria-live="polite">
               Loading details...
             </p>
           )}
           {detailError && (
-            <p role="alert" className="text-destructive">
+            <p role="alert" className="text-[var(--color-danger)]">
               {detailError}
             </p>
           )}
           {detail && (
             <>
-              <p className="whitespace-pre-wrap">{detail.description}</p>
+              <p className="whitespace-pre-wrap text-[var(--color-shell-text)]">{detail.description}</p>
               {detail.dynamicFields.length > 0 && (
                 <div className="space-y-1">
-                  <p className="font-medium">Category details</p>
-                  <dl className="space-y-1">
+                  <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-shell-text-muted)]">
+                    Category details
+                  </p>
+                  <dl className="grid gap-2 sm:grid-cols-2">
                     {detail.dynamicFields.map((field) => (
-                      <div key={field.fieldKey} className="flex flex-wrap gap-1">
-                        <dt className="font-medium">{formatDynamicFieldLabel(field.fieldKey)}:</dt>
-                        <dd className="text-muted-foreground">{field.value}</dd>
+                      <div
+                        key={field.fieldKey}
+                        className="rounded-xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] px-3 py-2"
+                      >
+                        <dt className="text-xs font-medium uppercase tracking-wide text-[var(--color-shell-text-muted)]">
+                          {formatDynamicFieldLabel(field.fieldKey)}
+                        </dt>
+                        <dd className="mt-1 text-sm text-[var(--color-shell-text)]">{field.value}</dd>
                       </div>
                     ))}
                   </dl>
@@ -138,13 +147,15 @@ export function AdminIdeaRow({ idea }: Props) {
         </div>
       )}
 
-      <EvaluationPanel
-        ideaId={idea.id}
-        currentStage={idea.currentStage}
-        currentOutcome={idea.currentOutcome}
-        isTerminal={idea.isTerminal}
-        onSuccess={handleSuccess}
-      />
+      <div className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)]/70 p-4">
+        <EvaluationPanel
+          ideaId={idea.id}
+          currentStage={idea.currentStage}
+          currentOutcome={idea.currentOutcome}
+          isTerminal={idea.isTerminal}
+          onSuccess={handleSuccess}
+        />
+      </div>
     </li>
   )
 }

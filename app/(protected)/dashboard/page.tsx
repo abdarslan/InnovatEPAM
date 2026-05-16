@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getMyIdeaDraftsAction } from '@/actions/idea-drafts'
 import DraftList from '@/components/ideas/DraftList'
 import Link from 'next/link'
+import { PageSurface, StateSurface } from '@/components/layout'
 
 export default async function DashboardPage() {
   const session = await getSession()
@@ -18,27 +19,21 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[--color-text]">Dashboard</h1>
-        <p className="mt-1 text-sm text-[--color-text-muted]">
-          Welcome back, {session.displayName}
-        </p>
-      </div>
-      <div className="rounded-lg border border-[--color-border] bg-white p-6">
+    <PageSurface title="Dashboard" description={`Welcome back, ${session.displayName}`}>
+      <div className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-6 shadow-sm">
         <dl className="flex flex-col gap-3">
-          <div className="flex gap-2">
-            <dt className="text-sm font-medium text-[--color-text-muted]">Name:</dt>
-            <dd className="text-sm text-[--color-text]">{session.displayName}</dd>
+          <div className="flex flex-wrap gap-2">
+            <dt className="text-sm font-medium text-[var(--color-shell-text-muted)]">Name:</dt>
+            <dd className="text-sm text-[var(--color-shell-text)]">{session.displayName}</dd>
           </div>
-          <div className="flex gap-2">
-            <dt className="text-sm font-medium text-[--color-text-muted]">Email:</dt>
-            <dd className="text-sm text-[--color-text]">{session.email}</dd>
+          <div className="flex flex-wrap gap-2">
+            <dt className="text-sm font-medium text-[var(--color-shell-text-muted)]">Email:</dt>
+            <dd className="text-sm text-[var(--color-shell-text)]">{session.email}</dd>
           </div>
-          <div className="flex gap-2">
-            <dt className="text-sm font-medium text-[--color-text-muted]">Role:</dt>
+          <div className="flex flex-wrap gap-2">
+            <dt className="text-sm font-medium text-[var(--color-shell-text-muted)]">Role:</dt>
             <dd className="text-sm">
-              <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+              <span className="inline-flex items-center rounded-full bg-[var(--color-surface-muted)] px-2 py-0.5 text-xs font-medium text-[var(--color-shell-primary)]">
                 {session.role}
               </span>
             </dd>
@@ -50,25 +45,26 @@ export default async function DashboardPage() {
       {isSubmitter && (
         <section aria-labelledby="drafts-heading">
           <div className="mb-3 flex items-center justify-between">
-            <h2 id="drafts-heading" className="text-lg font-semibold text-[--color-text]">
+            <h2 id="drafts-heading" className="text-lg font-semibold text-[var(--color-shell-text)]">
               Your Drafts
             </h2>
             <Link
               href="/ideas/new"
-              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-dark"
+              className="rounded-md bg-[var(--color-shell-primary)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[var(--color-primary-dark)]"
             >
               New Idea
             </Link>
           </div>
           {drafts === null || !drafts.ok ? (
-            <p role="alert" className="text-sm text-red-600">
-              {drafts?.error ?? 'Could not load drafts.'}
-            </p>
+            <StateSurface
+              title="Could not load drafts"
+              description={drafts?.error ?? 'Could not load drafts.'}
+            />
           ) : (
             <DraftList drafts={drafts.data} />
           )}
         </section>
       )}
-    </div>
+    </PageSurface>
   )
 }

@@ -12,7 +12,7 @@ test.describe('US3 — Admin Access & Role Enforcement', () => {
     const email = `submitter${Date.now()}@epam.com`
     await page.getByLabel(/email/i).fill(email)
     await page.getByLabel(/display name/i).fill('Submitter User')
-    await page.getByLabel(/^password/i).fill('Password1')
+    await page.getByLabel(/^password/i).fill('Password1!')
     await page.getByRole('button', { name: /register/i }).click()
     await expect(page).toHaveURL('/dashboard')
 
@@ -29,11 +29,12 @@ test.describe('US3 — Admin Access & Role Enforcement', () => {
     const email = `submitter2${Date.now()}@epam.com`
     await page.getByLabel(/email/i).fill(email)
     await page.getByLabel(/display name/i).fill('Submitter2')
-    await page.getByLabel(/^password/i).fill('Password1')
+    await page.getByLabel(/^password/i).fill('Password1!')
     await page.getByRole('button', { name: /register/i }).click()
+    await expect(page).toHaveURL('/dashboard')
 
     await page.goto('/access-denied')
-    await expect(page.getByRole('heading', { name: 'Access denied' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /access denied/i })).toBeVisible()
     await expect(page.getByText('You do not have permission to access this page.')).toBeVisible()
     await expect(page.getByRole('link', { name: /back to dashboard/i })).toBeVisible()
   })

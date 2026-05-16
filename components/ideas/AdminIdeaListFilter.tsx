@@ -33,7 +33,7 @@ export function AdminIdeaListFilter({ currentStatus }: Props) {
       id="status-filter"
       value={currentStatus ?? ''}
       onChange={handleChange}
-      className="rounded border border-input bg-background px-3 py-1.5 text-sm"
+      className="rounded-full border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] px-3 py-1.5 text-sm text-[var(--color-shell-text)] shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-shell-focus)]"
       aria-label="Filter ideas by status"
     >
       <option value="">All statuses</option>

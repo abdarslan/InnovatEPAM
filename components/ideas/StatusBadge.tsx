@@ -9,10 +9,10 @@ const STATUS_LABELS: Record<IdeaStatus, string> = {
 }
 
 const STATUS_CLASSES: Record<IdeaStatus, string> = {
-  submitted:    'bg-gray-100 text-gray-800 border-gray-300',
-  under_review: 'bg-amber-100 text-amber-800 border-amber-300',
-  accepted:     'bg-green-100 text-green-800 border-green-300',
-  rejected:     'bg-red-100 text-red-800 border-red-300',
+  submitted:    'border-[var(--color-shell-border)] bg-[var(--color-shell-surface-muted)] text-[var(--color-shell-text)]',
+  under_review: 'border-[var(--color-shell-border)] bg-[var(--color-surface-muted)] text-[var(--color-shell-primary)]',
+  accepted:     'border-[var(--color-success)] bg-[color-mix(in_srgb,var(--color-success)_12%,white)] text-[var(--color-success)]',
+  rejected:     'border-[var(--color-danger)] bg-[color-mix(in_srgb,var(--color-danger)_12%,white)] text-[var(--color-danger)]',
 }
 
 type Props = {
@@ -26,6 +26,7 @@ export function StatusBadge({ status, scoreReady = false }: Props) {
     <Badge
       variant="outline"
       className={STATUS_CLASSES[status]}
+      role="status"
       aria-label={status}
     >
       {text}

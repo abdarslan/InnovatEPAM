@@ -6,6 +6,7 @@ import IdeaForm from '@/components/ideas/IdeaForm'
 import { getIdeaDetailAction, updateIdeaAction } from '@/actions/ideas'
 import type { IdeaDetail } from '@/actions/ideas'
 import Link from 'next/link'
+import { PageSurface, StateSurface } from '@/components/layout'
 
 type EditIdeaPageProps = {
   params: Promise<{ id: string }>
@@ -36,31 +37,36 @@ export default function EditIdeaPage({ params }: EditIdeaPageProps) {
 
   if (loadError) {
     return (
-      <div className="space-y-4">
-        <div role="alert" className="rounded-md bg-red-50 p-4 text-sm text-red-700">
-          {loadError}
-        </div>
-        <Link href="/ideas" className="text-sm text-[--color-primary] hover:underline">
-          ← Back to ideas
-        </Link>
-      </div>
+      <PageSurface
+        title="Edit Idea"
+        description="Update the idea details and attachments."
+        actions={
+          <Link href="/ideas" className="text-sm text-[var(--color-shell-text-muted)] transition-colors hover:text-[var(--color-shell-primary)]">
+            ← Back to ideas
+          </Link>
+        }
+      >
+        <StateSurface title="Could not load idea" description={loadError} />
+      </PageSurface>
     )
   }
 
   if (!detail) {
-    return <p className="text-sm text-[--color-text-muted]">Loading…</p>
+    return <StateSurface title="Loading idea" description="Preparing the idea editor." />
   }
 
   const boundAction = updateIdeaAction.bind(null, detail.id)
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-6">
-        <Link href="/ideas" className="text-sm text-[--color-text-muted] hover:text-[--color-primary]">
+    <PageSurface
+      title="Edit Idea"
+      description="Update the idea details and attachments."
+      actions={
+        <Link href="/ideas" className="text-sm text-[var(--color-shell-text-muted)] transition-colors hover:text-[var(--color-shell-primary)]">
           ← Back to ideas
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-[--color-text]">Edit Idea</h1>
-      </div>
+      }
+    >
       <IdeaForm
         action={boundAction}
         defaultValues={{
@@ -72,6 +78,6 @@ export default function EditIdeaPage({ params }: EditIdeaPageProps) {
         onSuccess={() => router.push('/ideas')}
         submitLabel="Save changes"
       />
-    </div>
+    </PageSurface>
   )
 }

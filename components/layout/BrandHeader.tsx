@@ -23,7 +23,7 @@ export default function BrandHeader({ appName, logoSrc }: BrandHeaderProps) {
           onError={() => setIsLogoVisible(false)}
         />
       ) : null}
-      <span className="truncate text-sm font-semibold text-[var(--color-shell-primary)] [font-family:var(--font-shell-headline)]">
+      <span className="truncate text-lg font-semibold tracking-tight text-[var(--color-shell-primary)] [font-family:var(--font-shell-headline)]">
         {appName}
       </span>
     </div>

@@ -2,19 +2,17 @@
 
 ## Scope Delivered
 
-- Implemented protected-route global shell with persistent sidebar and topbar composition.
-- Added authorization-aware sidebar rendering and active-state navigation behavior.
-- Implemented off-canvas accessibility lifecycle for mobile/tablet navigation.
-- Applied shell semantic token mappings and token-driven class usage for sidebar/topbar/brand header.
-- Added robust brand fallback behavior for logo load failure.
-- Added reusable non-interactive search placeholder with responsive footprint contract.
+- Established the shared app-wide visual baseline across root, auth, and protected route groups.
+- Added shared page and state surface primitives to unify page hierarchy and feedback surfaces.
+- Applied the shared visual system to representative auth, dashboard, ideas, admin, and access-denied pages, including user management, idea management, and category field rules screens.
+- Added robust brand fallback behavior and updated shared layout guidance for the whole application.
+- Deferred integration and E2E work for this implementation phase per the current instruction.
 
 ## Completed Tasks
 
-- T001-T036 are completed in `specs/007-global-ui-ux/tasks.md`.
-- Remaining governance tasks:
-  - T040 (Create pull request)
-  - T041 (Merge after explicit user approval)
+- T001-T027 are completed in `specs/007-global-ui-ux/tasks.md`.
+- Remaining current-phase tasks:
+  - T028-T032 (validation notes, polish, PR governance)
 
 ## Validation Evidence
 
@@ -23,36 +21,26 @@ Executed checks:
 ```bash
 npm run type-check
 npm run lint
-npx vitest run components/layout/BrandHeader.test.tsx components/layout/SearchPlaceholder.test.tsx tests/integration/global-shell/global-shell-theme-contract.test.tsx tests/integration/global-shell/topbar-placeholder-contract.test.tsx
-npx playwright test tests/e2e/global-shell/global-shell-theme.spec.ts
-npx playwright test tests/e2e/global-shell/global-shell-placeholder.spec.ts
+npx vitest run components/layout/PageSurface.test.tsx components/layout/StateSurface.test.tsx
 ```
 
 Results:
 
 1. `npm run type-check`: PASS
 2. `npm run lint`: PASS with pre-existing non-blocking warnings outside feature scope
-3. Focused Vitest suite for US2/US3 additions: PASS
-4. Focused Playwright:
-   - `global-shell-theme.spec.ts`: PASS
-   - `global-shell-placeholder.spec.ts`: PASS
+3. Focused Vitest suite for the shared page/state surfaces: PASS
 
-Known local instability when running multiple global-shell E2E specs together:
-
-- Intermittent Next.js dev runtime invariant (`Expected clientReferenceManifest to be defined`).
-- Occasional registration-flow timing failures in concurrent E2E runs.
-
-These issues affect local parallel E2E orchestration and are not isolated to this feature slice.
+Integration and E2E validation are deferred for this phase.
 
 ## PR Creation Draft
 
 Title:
 
-`feat(global-ui-ux): implement protected shell, tokenized visual baseline, and topbar placeholder contract`
+`feat(global-ui-ux): implement shared whole-app visual system baseline`
 
 Description highlights:
 
-1. Global shell baseline (US1): sidebar/topbar persistence, auth-aware navigation, responsive off-canvas behavior.
-2. Visual foundation (US2): Aura semantic token mappings, brand fallback, focus-visible treatment.
-3. Future-ready header space (US3): non-interactive placeholder component with responsive footprint stability.
-4. Validation evidence and known E2E orchestration caveats documented.
+1. Shared visual baseline across auth, protected, and representative public screens.
+2. Shared page and state surface primitives for consistent hierarchy and feedback states.
+3. Component-level validation only in the current phase; integration and E2E deferred.
+4. Validation evidence and current scope limitations documented.

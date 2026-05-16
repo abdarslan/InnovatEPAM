@@ -33,11 +33,20 @@ test.describe('US2 — Employee Login Flow', () => {
     await page.getByLabel(/password/i).fill('WrongPass1')
     await page.getByRole('button', { name: /sign in/i }).click()
 
-    await expect(page.getByRole('alert')).toContainText(/invalid email or password/i)
+    const credentialsError = page
+      .locator('form div[role="alert"]')
+      .filter({ hasText: /invalid email or password/i })
+      .first()
+    await expect(credentialsError).toBeVisible()
   })
 
   test('shows session-expired message when redirected with reason=session_expired', async ({ page }) => {
     await page.goto('/login?reason=session_expired')
-    await expect(page.getByText(/session expired/i)).toBeVisible()
+    await expect(
+      page
+        .locator('div[role="status"]')
+        .filter({ hasText: /session has expired|session expired/i })
+        .first(),
+    ).toBeVisible()
   })
 })

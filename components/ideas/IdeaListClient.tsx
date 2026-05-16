@@ -31,11 +31,14 @@ export default function IdeaListClient({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {completedWithScores.length > 0 && (
-        <section aria-label="Completed idea scores" className="rounded border border-border bg-muted/30 p-3 text-sm">
-          <p className="font-medium">Completed Idea Scores</p>
-          <ul className="mt-1 space-y-1 text-muted-foreground">
+        <section
+          aria-label="Completed idea scores"
+          className="rounded-2xl border border-[var(--color-shell-border)] bg-[var(--color-shell-surface)] p-4 text-sm shadow-sm"
+        >
+          <p className="text-sm font-semibold text-[var(--color-shell-text)]">Completed Idea Scores</p>
+          <ul className="mt-2 space-y-1 text-[var(--color-shell-text-muted)]">
             {completedWithScores.map((idea) => (
               <li key={idea.id}>
                 {idea.title}: Alignment {idea.alignmentRating}/5 | Feasibility {idea.feasibilityRating}/5 | Impact {idea.impactRating}/5

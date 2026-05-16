@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-background text-[--color-text] font-sans antialiased">
+      <body className="min-h-screen bg-[var(--color-background)] text-[var(--color-text)] font-sans antialiased selection:bg-[var(--color-primary)] selection:text-white">
         {children}
         <Toaster />
       </body>
